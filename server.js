@@ -1,52 +1,67 @@
-const webpush = require("web-push");
-let sockets = {};   // username → socket.id
 const express = require("express");
 const app = express();
 const http = require("http").createServer(app);
 const io = require("socket.io")(http, { cors: { origin: "*" } });
+const webpush = require("web-push");
+const fs = require("fs");
 
-// Render Port oder lokal 3001
+// Render Port oder lokal
 const PORT = process.env.PORT || 3001;
 
-// statische Dateien aus dem Root
+// statische Dateien
 app.use(express.static(__dirname));
 
-let onlineUsers = [];
-let chats = {};
-let groupChats = {};
+/* ===========================
+   JSON-DATEI LADEN / SPEICHERN
+=========================== */
 
-let groups = {
-    "Familie": ["Papa", "Mama", "Chris", "Täubchen"],
-    "Freunde": ["Chris", "Stefan", "Michael"]
-};
+const DATA_FILE = "./json.js";
+
+function loadData() {
+    delete require.cache[require.resolve(DATA_FILE)];
+    return require(DATA_FILE);
+}
+
+function saveData(data) {
+    fs.writeFileSync(DATA_FILE, "module.exports = " + JSON.stringify(data, null, 2));
+}
+
+/* ===========================
+   DATEN LADEN
+=========================== */
+
+let { chats, groupChats, groups, pushSubscriptions } = loadData();
+let sockets = {};
+let onlineUsers = [];
 
 /* ===========================
    PUSH VAPID KEYS
 =========================== */
+
 webpush.setVapidDetails(
     "mailto:deine@mail.com",
     "BLo1QZy9CVxLdlyVgFrwI_pNktRKUQqxSuhnsFI3YaQ1vCLylZ3KalTa1cGQVl61je_buQxhfV6jIPRDmwyV_q8",
     "jQZxSv9R7eS7o7mYtaY8CwxeCJopH1-BBZUeUkoU2Ys"
 );
 
-let pushSubscriptions = {};
-
 /* ===========================
    SOCKET.IO
 =========================== */
+
 io.on("connection", (socket) => {
 
+    /* PUSH SUBSCRIPTION SPEICHERN */
     socket.on("saveSubscription", ({ username, subscription }) => {
         pushSubscriptions[username] = subscription;
-        console.log("Push Subscription gespeichert für:", username);
+        saveData({ chats, groupChats, groups, pushSubscriptions });
+        console.log("Push gespeichert für:", username);
     });
 
+    /* LOGIN */
     socket.on("login", ({ username }) => {
         if (socket.username === username) return;
 
-        console.log("Login:", username);
         socket.username = username;
-
         sockets[username] = socket.id;
 
         onlineUsers = onlineUsers.filter(u => u !== username);
@@ -55,6 +70,7 @@ io.on("connection", (socket) => {
         io.emit("onlineUsers", onlineUsers);
         socket.emit("groupsUpdated", groups);
 
+        // UNREAD
         let unread = [];
 
         Object.keys(chats).forEach(key => {
@@ -70,19 +86,24 @@ io.on("connection", (socket) => {
 
         const unreadFrom = [...new Set(unread.map(m => m.from))];
         socket.emit("unreadList", unreadFrom);
+
+        saveData({ chats, groupChats, groups, pushSubscriptions });
     });
 
+    /* PRIVATCHAT LADEN */
     socket.on("loadChat", ({ with: partner }) => {
         const key = [socket.username, partner].sort().join("_");
         if (!chats[key]) chats[key] = [];
         socket.emit("chatHistory", chats[key]);
     });
 
+    /* GRUPPENCHAT LADEN */
     socket.on("loadGroupChat", ({ group }) => {
         if (!groupChats[group]) groupChats[group] = [];
         socket.emit("groupChatHistory", groupChats[group]);
     });
 
+    /* PRIVATNACHRICHT */
     socket.on("message", (msg) => {
         const key = [msg.from, msg.to].sort().join("_");
 
@@ -92,11 +113,13 @@ io.on("connection", (socket) => {
         if (!chats[key]) chats[key] = [];
         chats[key].push(msg);
 
+        // Empfänger online?
         if (sockets[msg.to]) {
             io.to(sockets[msg.to]).emit("message", msg);
             msg.unread = false;
         }
 
+        // Push
         if (pushSubscriptions[msg.to]) {
             webpush.sendNotification(
                 pushSubscriptions[msg.to],
@@ -106,8 +129,11 @@ io.on("connection", (socket) => {
                 })
             ).catch(err => console.error("Push Fehler:", err));
         }
+
+        saveData({ chats, groupChats, groups, pushSubscriptions });
     });
 
+    /* GRUPPENNACHRICHT */
     socket.on("groupMessage", (msg) => {
         msg.id = Date.now() + Math.random();
         msg.unread = true;
@@ -133,30 +159,18 @@ io.on("connection", (socket) => {
                 ).catch(err => console.error("Push Fehler:", err));
             }
         });
+
+        saveData({ chats, groupChats, groups, pushSubscriptions });
     });
 
-    socket.on("requestUnread", () => {
-        let unread = [];
-
-        Object.keys(chats).forEach(key => {
-            chats[key].forEach(msg => {
-                if (msg.to === socket.username && msg.unread) unread.push(msg);
-            });
-        });
-
-        unread.forEach(msg => {
-            io.to(socket.id).emit("message", msg);
-            msg.unread = false;
-        });
-    });
-
+    /* DISCONNECT */
     socket.on("disconnect", () => {
         if (!socket.username) return;
 
         const username = socket.username;
         const oldSocketId = socket.id;
 
-        console.log(`Disconnect erkannt: ${username} – warte auf Reconnect...`);
+        console.log(`Disconnect: ${username} – warte auf Reconnect...`);
 
         setTimeout(() => {
             if (sockets[username] && sockets[username] !== oldSocketId) {
@@ -165,13 +179,13 @@ io.on("connection", (socket) => {
             }
 
             if (!sockets[username]) {
-                console.log(`User wirklich offline: ${username}`);
+                console.log(`User offline: ${username}`);
                 onlineUsers = onlineUsers.filter(u => u !== username);
                 io.emit("onlineUsers", onlineUsers);
                 return;
             }
 
-            console.log(`User wirklich offline: ${username}`);
+            console.log(`User offline: ${username}`);
             onlineUsers = onlineUsers.filter(u => u !== username);
             delete sockets[username];
             io.emit("onlineUsers", onlineUsers);
@@ -184,4 +198,5 @@ io.on("connection", (socket) => {
 /* ===========================
    SERVER START
 =========================== */
+
 http.listen(PORT, () => console.log("Server läuft auf Port", PORT));
