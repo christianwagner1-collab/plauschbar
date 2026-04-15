@@ -24,6 +24,14 @@ const socket = io({
 
 // --- AUTOMATISCH WIEDER EINLOGGEN ---
 socket.on("connect", () => {
+   if (selectedChat) {
+    if (selectedChat.type === "user") {
+        socket.emit("loadChat", { with: selectedChat.id });
+    } else {
+        socket.emit("loadGroupChat", { group: selectedChat.id });
+    }
+}
+
     console.log("Verbunden!");
 
     if (localStorage.username) {
