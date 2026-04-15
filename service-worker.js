@@ -1,38 +1,31 @@
 /* ===========================
-   SERVICE WORKER – CHAT APP
+   SERVICE WORKER – FIXED
 =========================== */
 
-// Cache Name
-const CACHE_NAME = "chat-cache-v1";
+const CACHE_VERSION = "v10";
+const STATIC_CACHE = `static-${CACHE_VERSION}`;
 
-// Dateien, die offline verfügbar sein sollen
-const OFFLINE_FILES = [
+const STATIC_FILES = [
   "/",
-  "/index.html",
-  "/client.js",
   "/style.css",
   "/icon.png"
 ];
 
-/* ===========================
-   INSTALL – Dateien cachen
-=========================== */
+/* INSTALL */
 self.addEventListener("install", (event) => {
   event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => cache.addAll(OFFLINE_FILES))
+    caches.open(STATIC_CACHE).then((cache) => cache.addAll(STATIC_FILES))
   );
   self.skipWaiting();
 });
 
-/* ===========================
-   ACTIVATE – alte Caches löschen
-=========================== */
+/* ACTIVATE */
 self.addEventListener("activate", (event) => {
   event.waitUntil(
     caches.keys().then((keys) =>
       Promise.all(
         keys
-          .filter((key) => key !== CACHE_NAME)
+          .filter((key) => key !== STATIC_CACHE)
           .map((key) => caches.delete(key))
       )
     )
@@ -40,28 +33,29 @@ self.addEventListener("activate", (event) => {
   self.clients.claim();
 });
 
-/* ===========================
-   FETCH – Offline‑Fallback
-=========================== */
+/* FETCH – Network first for HTML/JS */
 self.addEventListener("fetch", (event) => {
+  const url = new URL(event.request.url);
+
+  // HTML & JS IMMER aus dem Netzwerk
+  if (url.pathname.endsWith(".html") || url.pathname.endsWith(".js")) {
+    event.respondWith(
+      fetch(event.request).catch(() => caches.match("/"))
+    );
+    return;
+  }
+
+  // Icons & CSS aus Cache
   event.respondWith(
     caches.match(event.request).then((cached) => {
-      return (
-        cached ||
-        fetch(event.request).catch(() =>
-          caches.match("/index.html")
-        )
-      );
+      return cached || fetch(event.request);
     })
   );
 });
 
-/* ===========================
-   PUSH – Nachricht anzeigen
-=========================== */
+/* PUSH */
 self.addEventListener("push", (event) => {
   let data = {};
-
   try {
     data = event.data ? event.data.json() : {};
   } catch {
@@ -72,40 +66,25 @@ self.addEventListener("push", (event) => {
   const body = data.body || "Du hast eine neue Nachricht.";
   const url = data.url || "/";
 
-  const options = {
-    body,
-    icon: "/icon.png",
-    badge: "/icon.png",
-    vibrate: [100, 50, 100],
-    data: { url }
-  };
-
   event.waitUntil(
-    self.registration.showNotification(title, options)
-  );
-});
-
-/* ===========================
-   NOTIFICATION CLICK
-=========================== */
-self.addEventListener("notificationclick", (event) => {
-  event.notification.close();
-
-  event.waitUntil(
-    clients.matchAll({ type: "window", includeUncontrolled: true }).then((clientList) => {
-      for (const client of clientList) {
-        if ("focus" in client) return client.focus();
-      }
-      if (clients.openWindow) return clients.openWindow("/");
+    self.registration.showNotification(title, {
+      body,
+      icon: "/icon.png",
+      badge: "/icon.png",
+      data: { url }
     })
   );
 });
 
-/* ===========================
-   BADGE RESET
-=========================== */
-self.addEventListener("message", (event) => {
-  if (event.data === "clearBadge" && self.registration.setAppBadge) {
-    self.registration.setAppBadge(0).catch(() => {});
-  }
+/* NOTIFICATION CLICK */
+self.addEventListener("notificationclick", (event) => {
+  event.notification.close();
+  event.waitUntil(
+    clients.matchAll({ type: "window", includeUncontrolled: true }).then((list) => {
+      for (const client of list) {
+        if ("focus" in client) return client.focus();
+      }
+      return clients.openWindow("/");
+    })
+  );
 });
