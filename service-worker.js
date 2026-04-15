@@ -1,90 +1,72 @@
 /* ===========================
-   SERVICE WORKER – FIXED
+   SERVICE WORKER – PUSH + AUTO-OPEN
 =========================== */
 
-const CACHE_VERSION = "v10";
-const STATIC_CACHE = `static-${CACHE_VERSION}`;
-
-const STATIC_FILES = [
-  "/",
-  "/style.css",
-  "/icon.png"
-];
-
-/* INSTALL */
+// Install
 self.addEventListener("install", (event) => {
-  event.waitUntil(
-    caches.open(STATIC_CACHE).then((cache) => cache.addAll(STATIC_FILES))
-  );
-  self.skipWaiting();
+    self.skipWaiting();
 });
 
-/* ACTIVATE */
+// Activate
 self.addEventListener("activate", (event) => {
-  event.waitUntil(
-    caches.keys().then((keys) =>
-      Promise.all(
-        keys
-          .filter((key) => key !== STATIC_CACHE)
-          .map((key) => caches.delete(key))
-      )
-    )
-  );
-  self.clients.claim();
+    clients.claim();
 });
 
-/* FETCH – Network first for HTML/JS */
-self.addEventListener("fetch", (event) => {
-  const url = new URL(event.request.url);
-
-  // HTML & JS IMMER aus dem Netzwerk
-  if (url.pathname.endsWith(".html") || url.pathname.endsWith(".js")) {
-    event.respondWith(
-      fetch(event.request).catch(() => caches.match("/"))
-    );
-    return;
-  }
-
-  // Icons & CSS aus Cache
-  event.respondWith(
-    caches.match(event.request).then((cached) => {
-      return cached || fetch(event.request);
-    })
-  );
-});
-
-/* PUSH */
+/* ===========================
+   PUSH EMPFANGEN
+=========================== */
 self.addEventListener("push", (event) => {
-  let data = {};
-  try {
-    data = event.data ? event.data.json() : {};
-  } catch {
-    data = { title: "Neue Nachricht", body: "Du hast eine neue Nachricht." };
-  }
+    let data = {};
 
-  const title = data.title || "Neue Nachricht";
-  const body = data.body || "Du hast eine neue Nachricht.";
-  const url = data.url || "/";
+    try {
+        data = event.data.json();
+    } catch (e) {
+        console.error("Push JSON Fehler:", e);
+    }
 
-  event.waitUntil(
-    self.registration.showNotification(title, {
-      body,
-      icon: "/icon.png",
-      badge: "/icon.png",
-      data: { url }
-    })
-  );
+    const title = data.title || "Neue Nachricht";
+    const body = data.body || "";
+    const chatName = data.title; // Name des Chats (Absender oder Gruppe)
+
+    const options = {
+        body,
+        icon: "/icon-192.png",
+        badge: "/icon-192.png",
+        data: {
+            chatName
+        }
+    };
+
+    event.waitUntil(
+        self.registration.showNotification(title, options)
+    );
 });
 
-/* NOTIFICATION CLICK */
+/* ===========================
+   PUSH ANGEKLICKT → CHAT ÖFFNEN
+=========================== */
 self.addEventListener("notificationclick", (event) => {
-  event.notification.close();
-  event.waitUntil(
-    clients.matchAll({ type: "window", includeUncontrolled: true }).then((list) => {
-      for (const client of list) {
-        if ("focus" in client) return client.focus();
-      }
-      return clients.openWindow("/");
-    })
-  );
+    event.notification.close();
+
+    const chatName = event.notification.data.chatName;
+
+    event.waitUntil(
+        clients.matchAll({ type: "window", includeUncontrolled: true })
+            .then((clientList) => {
+
+                // Falls App offen → Nachricht an Client schicken
+                for (const client of clientList) {
+                    client.postMessage({ openChat: chatName });
+                    client.focus();
+                    return;
+                }
+
+                // Falls App geschlossen → neu öffnen
+                return clients.openWindow("/").then((newClient) => {
+                    setTimeout(() => {
+                        newClient.postMessage({ openChat: chatName });
+                    }, 500);
+                });
+            })
+    );
 });
