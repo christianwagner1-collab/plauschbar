@@ -8,87 +8,100 @@
 
     <!-- PWA -->
     <link rel="manifest" href="/manifest.json">
-    <meta name="theme-color" content="#ffffff">
+    <meta name="theme-color" content="#0d1b2a">
     <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black">
     <link rel="apple-touch-icon" href="/icon-192.png">
 
     <!-- Styles -->
-    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="style.css?v=2000">
 </head>
 <body>
 
 <!-- LOGIN SCREEN -->
-<div id="loginScreen">
-    <img src="icon-192.png" alt="Chat Icon" style="width:80px; height:auto; margin-bottom:15px;">
-    <h2>👋❤️Willkommen in der Plausch Bar 👋❤️</h2>
-    <p>Bitte deinen Vornamen und PIN (Geburtsjahr) eingeben und auf Start drücken</p>
-    <p>🔐🖕 Die Seite ist verschlüsselt 🖕🔐</p>
+<div id="loginScreen" class="login-container">
+    <div class="login-box">
+        <div class="login-icon">💬</div>
+        <h2>Willkommen in der Plausch Bar</h2>
+        <p>Bitte deinen Vornamen und PIN (Geburtsjahr) eingeben</p>
 
-    <input id="usernameInput" type="text" placeholder="Dein Name">
-    <input id="pinInput" type="password" maxlength="4" placeholder="Deine PIN (Geburtsjahr)">
-    <button id="loginBtn">Start</button>
+        <input id="usernameInput" type="text" placeholder="Dein Name">
+        <input id="pinInput" type="password" maxlength="4" placeholder="Deine PIN (Geburtsjahr)">
+        <button id="loginBtn" class="btn-primary">Start</button>
+    </div>
 </div>
 
-<!-- CHAT SCREEN -->
-<div id="chatScreen" style="display:none;">
+<!-- MAIN CHAT SCREEN -->
+<div id="chatScreen" class="app hidden">
 
-    <!-- SIDEBAR DESKTOP -->
-    <div id="sidebarDesktop">
+    <!-- SIDEBAR -->
+    <aside id="sidebar" class="sidebar">
+        <header class="sidebar-header">
+            <div class="sidebar-title">Plausch Bar</div>
+        </header>
 
-        <h3>📁 Gruppen</h3>
-        <ul id="groupListDesktop"></ul>
+        <div class="sidebar-section">
+            <h3>👥 Gruppen</h3>
+            <ul id="groupListDesktop" class="list"></ul>
+        </div>
 
-        <h3>👤 Kontakte</h3>
-        <ul id="userListDesktop"></ul>
-
-    </div>
+        <div class="sidebar-section">
+            <h3>👤 Kontakte</h3>
+            <ul id="userListDesktop" class="list"></ul>
+        </div>
+    </aside>
 
     <!-- CHAT AREA -->
-    <div id="chatArea">
+    <main id="chatArea" class="chat-area">
 
-        <div id="chatHeader">
-            <div>
-                <div id="chatAvatar">👤</div>
-                <div id="chatTitle">Chat</div>
+        <!-- CHAT HEADER -->
+        <div id="chatHeader" class="chat-header">
+            <div class="chat-header-left">
+                <div id="chatAvatar" class="chat-avatar">👤</div>
+                <div>
+                    <div id="chatTitle" class="chat-title">Chat</div>
+                    <div id="chatSubTitle" class="chat-subtitle"></div>
+                </div>
+            </div>
+
+            <div class="chat-header-right">
+                <button id="recordBtnHeader" class="icon-btn">🎙️</button>
+                <button id="deleteChatBtn" class="icon-btn">🗑️</button>
             </div>
         </div>
 
-        <div id="messages"></div>
+        <!-- MESSAGES -->
+        <div id="messages" class="messages"></div>
 
-        <div id="inputArea">
-
-            <select id="emojiSelect">
+        <!-- INPUT AREA -->
+        <div id="inputArea" class="input-area">
+            <select id="emojiSelect" class="emoji-select">
                 <option value="">🙂</option>
                 <option value="😊">😊</option>
                 <option value="😍">😍</option>
                 <option value="😢">😢</option>
                 <option value="😡">😡</option>
                 <option value="👍">👍</option>
-                <option value="👎">👎</option>
                 <option value="🎉">🎉</option>
-                <option value="🐱‍👤">🐱‍👤</option>
                 <option value="❤️">❤️</option>
-                <option value="🤡">🤡</option>
-                <option value="🤮">🤮</option>
-                <option value="🤢">🤢</option>
-                <option value="😱">😱</option>
-                <option value="💩">💩</option>
                 <option value="😎">😎</option>
-                <option value="😄">😄</option>
+                <option value="💩">💩</option>
             </select>
 
-            <input id="messageInput" placeholder="Nachricht…">
+            <input id="messageInput" class="message-input" placeholder="Nachricht schreiben…">
 
-            <button id="sendBtn">➤</button>
+            <button id="fileBtn" class="icon-btn">📎</button>
+            <input id="fileInput" type="file" accept="image/*,video/*" hidden>
+
+            <button id="sendBtn" class="btn-send">➤</button>
         </div>
 
-    </div>
+    </main>
 </div>
 
 <!-- SCRIPTS -->
 <script src="/socket.io/socket.io.js"></script>
-<script src="client.js?v=100001"></script>
+<script src="client.js?v=2000"></script>
 
 </body>
 </html>
