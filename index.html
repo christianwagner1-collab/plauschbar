@@ -8,100 +8,108 @@
 
     <!-- PWA -->
     <link rel="manifest" href="/manifest.json">
-    <meta name="theme-color" content="#0d1b2a">
+    <meta name="theme-color" content="#ffffff">
     <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="black">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
     <link rel="apple-touch-icon" href="/icon-192.png">
 
     <!-- Styles -->
-    <link rel="stylesheet" href="style.css?v=2000">
+    <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
 <!-- LOGIN SCREEN -->
-<div id="loginScreen" class="login-container">
-    <div class="login-box">
-        <div class="login-icon">💬</div>
-        <h2>Willkommen in der Plausch Bar</h2>
-        <p>Bitte deinen Vornamen und PIN (Geburtsjahr) eingeben</p>
+<div id="loginScreen">
+    <img src="icon-192.png" alt="Chat Icon" style="width:80px; height:auto; margin-bottom:15px;">
+    <h2>👋❤️Willkommen in der Plausch Bar 👋❤️</h2>
+    <p>Bitte deinen Vornamen und PIN (Geburtsjahr) eingeben und auf Start drücken</p>
+    <p>🔐🖕 Die Seite ist verschlüsselt 🖕🔐</p>
 
-        <input id="usernameInput" type="text" placeholder="Dein Name">
-        <input id="pinInput" type="password" maxlength="4" placeholder="Deine PIN (Geburtsjahr)">
-        <button id="loginBtn" class="btn-primary">Start</button>
-    </div>
+    <input id="usernameInput" type="text" placeholder="Dein Name">
+
+    <input id="pinInput" type="password" maxlength="4" placeholder="Deine PIN (Geburtsjahr)">
+
+    <button id="loginBtn">Start</button>
 </div>
 
-<!-- MAIN CHAT SCREEN -->
-<div id="chatScreen" class="app hidden">
+<!-- CHAT SCREEN -->
+<div id="chatScreen" style="display:none;">
 
-    <!-- SIDEBAR -->
-    <aside id="sidebar" class="sidebar">
-        <header class="sidebar-header">
-            <div class="sidebar-title">Plausch Bar</div>
-        </header>
+    <!-- SIDEBAR DESKTOP -->
+    <div id="sidebarDesktop">
+        <h3>Kontakte</h3>
+        <ul id="userListDesktop"></ul>
+    </div>
 
-        <div class="sidebar-section">
-            <h3>👥 Gruppen</h3>
-            <ul id="groupListDesktop" class="list"></ul>
+    <!-- SIDEBAR MOBILE -->
+    <div id="sidebarOverlay" class="hidden">
+        <div id="sidebar">
+            <button id="closeSidebarBtn">Schließen</button>
+            <h3>Kontakte</h3>
+            <ul id="userList"></ul>
         </div>
-
-        <div class="sidebar-section">
-            <h3>👤 Kontakte</h3>
-            <ul id="userListDesktop" class="list"></ul>
-        </div>
-    </aside>
+    </div>
 
     <!-- CHAT AREA -->
-    <main id="chatArea" class="chat-area">
+    <div id="chatArea">
 
-        <!-- CHAT HEADER -->
-        <div id="chatHeader" class="chat-header">
-            <div class="chat-header-left">
-                <div id="chatAvatar" class="chat-avatar">👤</div>
-                <div>
-                    <div id="chatTitle" class="chat-title">Chat</div>
-                    <div id="chatSubTitle" class="chat-subtitle"></div>
-                </div>
+        <div id="chatHeader">
+            <button id="openSidebarBtn">☰</button>
+
+            <div>
+                <div id="chatAvatar">👤</div>
+                <div id="chatTitle">Chat</div>
+                <div id="chatSubTitle"></div>
+                <div id="groupMembers"></div>
             </div>
 
-            <div class="chat-header-right">
-                <button id="recordBtnHeader" class="icon-btn">🎙️</button>
-                <button id="deleteChatBtn" class="icon-btn">🗑️</button>
+            <div id="headerButtons">
+                <button id="recordBtnHeader">🎙️</button>
+                <button id="deleteChatBtn">🗑️</button>
+                <button id="addToGroupBtn">➕</button>
+                <button id="removeFromGroupBtn">➖</button>
             </div>
         </div>
 
-        <!-- MESSAGES -->
-        <div id="messages" class="messages"></div>
+        <div id="messages"></div>
 
-        <!-- INPUT AREA -->
-        <div id="inputArea" class="input-area">
-            <select id="emojiSelect" class="emoji-select">
+        <div id="inputArea">
+
+            <select id="emojiSelect">
                 <option value="">🙂</option>
                 <option value="😊">😊</option>
                 <option value="😍">😍</option>
                 <option value="😢">😢</option>
                 <option value="😡">😡</option>
                 <option value="👍">👍</option>
+                <option value="👎">👎</option>
                 <option value="🎉">🎉</option>
+                <option value="🐱‍👤">🐱‍👤</option>
                 <option value="❤️">❤️</option>
-                <option value="😎">😎</option>
+                <option value="🤡">🤡</option>
+                <option value="🤮">🤮</option>
+                <option value="🤢">🤢</option>
+                <option value="😱">😱</option>
                 <option value="💩">💩</option>
+                <option value="😎">😎</option>
+                <option value="😄">😄</option>
             </select>
 
-            <input id="messageInput" class="message-input" placeholder="Nachricht schreiben…">
+            <input id="messageInput" placeholder="Nachricht…">
 
-            <button id="fileBtn" class="icon-btn">📎</button>
-            <input id="fileInput" type="file" accept="image/*,video/*" hidden>
+            <input id="fileInput" type="file" style="display:none;">
+            <button id="fileBtn">📎</button>
 
-            <button id="sendBtn" class="btn-send">➤</button>
+            <button id="sendBtn">➤</button>
         </div>
 
-    </main>
+    </div>
 </div>
 
 <!-- SCRIPTS -->
 <script src="/socket.io/socket.io.js"></script>
-<script src="client.js?v=2000"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
+<script src="client.js?v=100000"></script>
 
 </body>
 </html>
