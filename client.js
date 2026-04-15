@@ -56,19 +56,30 @@ document.addEventListener("visibilitychange", () => {
 });
 
 
-// --- AUTOMATISCHES WIEDERVERBINDEN ---
-socket.on("disconnect", () => {
-    console.log("Verbindung verloren – versuche erneut zu verbinden…");
-});
+// --- AUTOMATISCH WIEDER EINLOGGEN ---
+socket.on("connect", () => {
 
-socket.on("reconnect", () => {
-    console.log("Wieder verbunden!");
+    console.log("Verbunden!");
 
+    // 1. Login wiederherstellen
     if (localStorage.username) {
         username = localStorage.username;
         socket.emit("login", { username });
     }
+
+    // 2. Chat erst NACH Login neu laden
+    setTimeout(() => {
+        if (selectedChat) {
+            if (selectedChat.type === "user") {
+                socket.emit("loadChat", { with: selectedChat.id });
+            } else {
+                socket.emit("loadGroupChat", { group: selectedChat.id });
+            }
+        }
+    }, 300); // kleine Verzögerung, damit Login sicher durch ist
 });
+
+
 
 // --- LOGIN-FUNKTION ---
 function doLogin(username) {
