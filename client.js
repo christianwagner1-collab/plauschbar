@@ -29,6 +29,10 @@ function connectSocket() {
         renderUserList(users);
     });
 
+    socket.on("groupsUpdated", (groups) => {
+        renderGroupList(groups);
+    });
+
     socket.on("message", (msg) => {
         handleIncomingMessage(msg);
     });
@@ -63,7 +67,7 @@ document.getElementById("loginBtn").addEventListener("click", () => {
 });
 
 /* ===========================
-   USERLISTE
+   USERLISTE (NUR USER)
 =========================== */
 function renderUserList(users) {
     const list = document.getElementById("userListDesktop");
@@ -85,7 +89,26 @@ function renderUserList(users) {
 }
 
 /* ===========================
-   CHAT ÖFFNEN
+   GRUPPENLISTE
+=========================== */
+function renderGroupList(groups) {
+    const list = document.getElementById("userListDesktop");
+    list.innerHTML = "";
+
+    // Gruppen zuerst
+    Object.keys(groups).forEach(group => {
+        const li = document.createElement("li");
+        li.textContent = "📁 " + group;
+        li.addEventListener("click", () => openGroupChat(group));
+        list.appendChild(li);
+    });
+
+    // Danach User
+    socket.emit("onlineUsersRequest"); // optional
+}
+
+/* ===========================
+   CHAT ÖFFNEN (USER)
 =========================== */
 function openChat(name) {
     currentChat = name;
@@ -96,6 +119,20 @@ function openChat(name) {
     document.getElementById("messages").innerHTML = "";
 
     socket.emit("loadChat", { with: name });
+}
+
+/* ===========================
+   CHAT ÖFFNEN (GRUPPE)
+=========================== */
+function openGroupChat(group) {
+    currentChat = group;
+    unread[group] = 0;
+    updateUnreadBadges();
+
+    document.getElementById("chatTitle").textContent = group;
+    document.getElementById("messages").innerHTML = "";
+
+    socket.emit("loadGroupChat", { group });
 }
 
 /* ===========================
@@ -143,13 +180,18 @@ document.getElementById("sendBtn").addEventListener("click", () => {
 
     const msg = {
         from: username,
-        to: currentChat,
         text
     };
 
-    socket.emit("message", msg);
-    renderMessage(msg);
+    if (Object.keys(unread).includes(currentChat)) {
+        msg.to = currentChat; // Privat
+        socket.emit("message", msg);
+    } else {
+        msg.group = currentChat; // Gruppe
+        socket.emit("groupMessage", msg);
+    }
 
+    renderMessage(msg);
     document.getElementById("messageInput").value = "";
 });
 
@@ -157,7 +199,8 @@ document.getElementById("sendBtn").addEventListener("click", () => {
    UNREAD BADGES
 =========================== */
 function updateUnreadBadges() {
-    renderUserList(Object.keys(unread));
+    // Wird durch renderGroupList + renderUserList neu aufgebaut
+    socket.emit("onlineUsersRequest");
 }
 
 /* ===========================
