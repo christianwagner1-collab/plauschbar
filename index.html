@@ -26,7 +26,9 @@
     <p>🔐🖕 Die Seite ist verschlüsselt 🖕🔐</p>
 
     <input id="usernameInput" type="text" placeholder="Dein Name">
+
     <input id="pinInput" type="password" maxlength="4" placeholder="Deine PIN (Geburtsjahr)">
+
     <button id="loginBtn">Start</button>
 </div>
 
@@ -105,16 +107,9 @@
 </div>
 
 <!-- SCRIPTS -->
-
-<!-- WICHTIG: Socket.io von CDN -->
-<script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
-
-<!-- CryptoJS -->
+<script src="/socket.io/socket.io.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
-
-<!-- Dein Client -->
-<script src="client.js?v=200000"></script>
-
+<script src="client.js?v=100000"></script>
 
 </body>
 </html>
