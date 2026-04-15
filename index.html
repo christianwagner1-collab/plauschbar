@@ -26,9 +26,7 @@
     <p>🔐🖕 Die Seite ist verschlüsselt 🖕🔐</p>
 
     <input id="usernameInput" type="text" placeholder="Dein Name">
-
     <input id="pinInput" type="password" maxlength="4" placeholder="Deine PIN (Geburtsjahr)">
-
     <button id="loginBtn">Start</button>
 </div>
 
@@ -37,37 +35,22 @@
 
     <!-- SIDEBAR DESKTOP -->
     <div id="sidebarDesktop">
-        <h3>Kontakte</h3>
-        <ul id="userListDesktop"></ul>
-    </div>
 
-    <!-- SIDEBAR MOBILE -->
-    <div id="sidebarOverlay" class="hidden">
-        <div id="sidebar">
-            <button id="closeSidebarBtn">Schließen</button>
-            <h3>Kontakte</h3>
-            <ul id="userList"></ul>
-        </div>
+        <h3>📁 Gruppen</h3>
+        <ul id="groupListDesktop"></ul>
+
+        <h3>👤 Kontakte</h3>
+        <ul id="userListDesktop"></ul>
+
     </div>
 
     <!-- CHAT AREA -->
     <div id="chatArea">
 
         <div id="chatHeader">
-            <button id="openSidebarBtn">☰</button>
-
             <div>
                 <div id="chatAvatar">👤</div>
                 <div id="chatTitle">Chat</div>
-                <div id="chatSubTitle"></div>
-                <div id="groupMembers"></div>
-            </div>
-
-            <div id="headerButtons">
-                <button id="recordBtnHeader">🎙️</button>
-                <button id="deleteChatBtn">🗑️</button>
-                <button id="addToGroupBtn">➕</button>
-                <button id="removeFromGroupBtn">➖</button>
             </div>
         </div>
 
@@ -97,9 +80,6 @@
 
             <input id="messageInput" placeholder="Nachricht…">
 
-            <input id="fileInput" type="file" style="display:none;">
-            <button id="fileBtn">📎</button>
-
             <button id="sendBtn">➤</button>
         </div>
 
@@ -108,8 +88,7 @@
 
 <!-- SCRIPTS -->
 <script src="/socket.io/socket.io.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
-<script src="client.js?v=100000"></script>
+<script src="client.js?v=100001"></script>
 
 </body>
 </html>
