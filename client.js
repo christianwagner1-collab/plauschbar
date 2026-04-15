@@ -39,6 +39,7 @@ socket.on("connect", () => {
         socket.emit("login", { username });
     }
 });
+
 // ============================
 // WAKE-SYNC: Neue Nachrichten abrufen,
 // sobald die App wieder sichtbar wird
