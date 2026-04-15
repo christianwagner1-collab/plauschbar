@@ -24,14 +24,6 @@ const socket = io({
 
 // --- AUTOMATISCH WIEDER EINLOGGEN ---
 socket.on("connect", () => {
-   if (selectedChat) {
-    if (selectedChat.type === "user") {
-        socket.emit("loadChat", { with: selectedChat.id });
-    } else {
-        socket.emit("loadGroupChat", { group: selectedChat.id });
-    }
-}
-
     console.log("Verbunden!");
 
     if (localStorage.username) {
@@ -39,7 +31,6 @@ socket.on("connect", () => {
         socket.emit("login", { username });
     }
 });
-
 // ============================
 // WAKE-SYNC: Neue Nachrichten abrufen,
 // sobald die App wieder sichtbar wird
