@@ -1,72 +1,144 @@
 /* ===========================
-   SERVICE WORKER – PUSH + AUTO-OPEN
+   SERVICE WORKER
+   PUSH + AUTO-OPEN
 =========================== */
 
-// Install
+/* ===========================
+   INSTALL
+=========================== */
+
 self.addEventListener("install", (event) => {
+
+    console.log("Service Worker installiert");
+
     self.skipWaiting();
+
 });
 
-// Activate
+/* ===========================
+   ACTIVATE
+=========================== */
+
 self.addEventListener("activate", (event) => {
-    clients.claim();
+
+    console.log("Service Worker aktiv");
+
+    event.waitUntil(clients.claim());
+
 });
 
 /* ===========================
    PUSH EMPFANGEN
 =========================== */
+
 self.addEventListener("push", (event) => {
+
     let data = {};
 
     try {
-        data = event.data.json();
-    } catch (e) {
-        console.error("Push JSON Fehler:", e);
+
+        if (event.data) {
+            data = event.data.json();
+        }
+
+    } catch (err) {
+
+        console.error(
+            "Push JSON Fehler:",
+            err
+        );
+
     }
 
-    const title = data.title || "Neue Nachricht";
-    const body = data.body || "";
-    const chatName = data.title; // Name des Chats (Absender oder Gruppe)
+    const title =
+        data.title || "Neue Nachricht";
+
+    const body =
+        data.body || "";
+
+    const chatName =
+        data.title || "";
 
     const options = {
-        body,
+
+        body: body,
+
         icon: "/icon-192.png",
+
         badge: "/icon-192.png",
+
+        vibrate: [200, 100, 200],
+
+        tag: "chat-message",
+
+        renotify: true,
+
+        requireInteraction: false,
+
         data: {
-            chatName
+            chatName: chatName
         }
+
     };
 
     event.waitUntil(
-        self.registration.showNotification(title, options)
+
+        self.registration.showNotification(
+            title,
+            options
+        )
+
     );
+
 });
 
 /* ===========================
-   PUSH ANGEKLICKT → CHAT ÖFFNEN
+   BENACHRICHTIGUNG GEKLICKT
 =========================== */
-self.addEventListener("notificationclick", (event) => {
-    event.notification.close();
 
-    const chatName = event.notification.data.chatName;
+self.addEventListener(
+    "notificationclick",
+    (event) => {
 
-    event.waitUntil(
-        clients.matchAll({ type: "window", includeUncontrolled: true })
+        event.notification.close();
+
+        const chatName =
+            event.notification.data?.chatName || "";
+
+        event.waitUntil(
+
+            clients.matchAll({
+                type: "window",
+                includeUncontrolled: true
+            })
+
             .then((clientList) => {
 
-                // Falls App offen → Nachricht an Client schicken
                 for (const client of clientList) {
-                    client.postMessage({ openChat: chatName });
+
                     client.focus();
+
+                    client.postMessage({
+                        openChat: chatName
+                    });
+
                     return;
                 }
 
-                // Falls App geschlossen → neu öffnen
-                return clients.openWindow("/").then((newClient) => {
-                    setTimeout(() => {
-                        newClient.postMessage({ openChat: chatName });
-                    }, 500);
-                });
+                return clients
+                    .openWindow("/")
+                    .then(() => {
+
+                        console.log(
+                            "App geöffnet"
+                        );
+
+                    });
+
             })
-    );
-});
+
+        );
+
+    }
+
+);
