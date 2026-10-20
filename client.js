@@ -126,12 +126,26 @@ let onlineUsers = [];
 
 async function subscribeUserToPush() {
   try {
-    const registration = await navigator.serviceWorker.ready;
 
-    const subscription = await registration.pushManager.subscribe({
-      userVisibleOnly: true,
-      applicationServerKey: "BLo1QZy9CVxLdlyVgFrwI_pNktRKUQqxSuhnsFI3YaQ1vCLylZ3KalTa1cGQVl61je_buQxhfV6jIPRDmwyV_q8"
-    });
+    const registration =
+      await navigator.serviceWorker.ready;
+
+    let subscription =
+      await registration.pushManager.getSubscription();
+
+    if (!subscription) {
+
+      subscription =
+        await registration.pushManager.subscribe({
+
+          userVisibleOnly: true,
+
+          applicationServerKey:
+          "BHpAxlR1IOB5-l9qaZG0ZUcmMzpU1jM3THblOGZfTRmBVvIM61LIaIWbQ-GElC9cySX8wIdesXZ2-REw-RBmxx0"
+
+        });
+
+    }
 
     socket.emit("saveSubscription", {
       username: username,
@@ -139,11 +153,16 @@ async function subscribeUserToPush() {
     });
 
     console.log("Push Subscription gespeichert");
+
   } catch (err) {
-    console.error("Push Subscription Fehler:", err);
+
+    console.error(
+      "Push Subscription Fehler:",
+      err
+    );
+
   }
 }
-
 let mediaRecorder = null;
 let audioChunks = [];
 let isRecording = false;
