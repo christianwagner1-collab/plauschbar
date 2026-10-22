@@ -275,16 +275,12 @@ loginBtn.onclick = () => {
    AUTO LOGIN BEIM APP START
 =========================== */
 
+/*
 window.addEventListener("load", () => {
 
     if (!localStorage.username) return;
 
     username = localStorage.username;
-
-    console.log(
-        "Automatischer Login:",
-        username
-    );
 
     loginScreen.style.display = "none";
     chatScreen.style.display = "flex";
@@ -303,7 +299,7 @@ window.addEventListener("load", () => {
     }
 
 });
-socket.on("onlineUsers", (users) => {
+*/socket.on("onlineUsers", (users) => {
   onlineUsers = users;
   renderFriends();
 });
