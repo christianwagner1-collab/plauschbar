@@ -1150,3 +1150,31 @@ async function compressVideo(file) {
     };
   });
 }
+/* ===========================
+   CHAT AUS URL ÖFFNEN
+=========================== */
+
+window.addEventListener("load", () => {
+
+    const params = new URLSearchParams(window.location.search);
+    const chatName = params.get("chat");
+
+    if (!chatName) return;
+
+    console.log("Chat aus URL:", chatName);
+
+    setTimeout(() => {
+
+        if (friends.includes(chatName)) {
+            selectUser(chatName);
+            return;
+        }
+
+        if (groups[chatName]) {
+            selectGroup(chatName);
+            return;
+        }
+
+    }, 1500);
+
+});
