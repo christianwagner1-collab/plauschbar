@@ -112,27 +112,33 @@ self.addEventListener(
                 includeUncontrolled: true
             })
 
-.then((clientList) => {
+            .then((clientList) => {
 
-    for (const client of clientList) {
+                for (const client of clientList) {
 
-        client.focus();
+                    client.focus();
 
-        client.postMessage({
-            openChat: chatName
-        });
+                    client.postMessage({
+                        openChat: chatName
+                    });
 
-        return;
+                    return;
+                }
+
+                return clients
+                    .openWindow("/")
+                    .then(() => {
+
+                        console.log(
+                            "App geöffnet"
+                        );
+
+                    });
+
+            })
+
+        );
+
     }
-
-    return clients.openWindow(
-        "/?chat=" + encodeURIComponent(chatName)
-    );
-
-})
-
-);
-
-}
 
 );
