@@ -9,6 +9,44 @@ if ("serviceWorker" in navigator) {
 }
 
 /* ===========================
+   PUSH KLICK → CHAT ÖFFNEN
+=========================== */
+
+navigator.serviceWorker.addEventListener("message", (event) => {
+
+    if (!event.data?.openChat) return;
+
+    const chatName = event.data.openChat;
+
+    console.log("Push geöffnet für:", chatName);
+
+    // Falls Auto-Login erforderlich
+    if (!username && localStorage.username) {
+
+        username = localStorage.username;
+
+        loginScreen.style.display = "none";
+        chatScreen.style.display = "flex";
+
+        socket.emit("login", {
+            username
+        });
+    }
+
+    setTimeout(() => {
+
+        if (friends.includes(chatName)) {
+            selectUser(chatName);
+        }
+
+        if (groups[chatName]) {
+            selectGroup(chatName);
+        }
+
+    }, 500);
+
+});
+/* ===========================
    TEIL 1 — BASIS & LOGIN
 =========================== */
 
