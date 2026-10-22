@@ -24,13 +24,22 @@ const socket = io({
 
 // --- AUTOMATISCH WIEDER EINLOGGEN ---
 socket.on("connect", () => {
+
     console.log("Verbunden!");
 
     if (localStorage.username) {
+
         username = localStorage.username;
+
+        loginScreen.style.display = "none";
+        chatScreen.style.display = "flex";
+
         socket.emit("login", { username });
+
     }
+
 });
+
 // ============================
 // WAKE-SYNC: Neue Nachrichten abrufen,
 // sobald die App wieder sichtbar wird
