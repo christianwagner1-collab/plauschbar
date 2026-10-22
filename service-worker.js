@@ -56,8 +56,8 @@ self.addEventListener("push", (event) => {
     const body =
         data.body || "";
 
-    const chatName =
-        data.title || "";
+const chatName =
+    data.chat || "";
 
     const options = {
 
@@ -112,33 +112,27 @@ self.addEventListener(
                 includeUncontrolled: true
             })
 
-            .then((clientList) => {
+.then((clientList) => {
 
-                for (const client of clientList) {
+    for (const client of clientList) {
 
-                    client.focus();
+        client.focus();
 
-                    client.postMessage({
-                        openChat: chatName
-                    });
+        client.postMessage({
+            openChat: chatName
+        });
 
-                    return;
-                }
-
-                return clients
-                    .openWindow("/")
-                    .then(() => {
-
-                        console.log(
-                            "App geöffnet"
-                        );
-
-                    });
-
-            })
-
-        );
-
+        return;
     }
+
+    return clients.openWindow(
+        "/?chat=" + encodeURIComponent(chatName)
+    );
+
+})
+
+);
+
+}
 
 );
