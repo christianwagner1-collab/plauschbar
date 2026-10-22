@@ -99,15 +99,16 @@ io.on("connection", (socket) => {
 	console.log("Push für:", msg.to);
 console.log("Subscription vorhanden:",
     !!pushSubscriptions[msg.to]);
-        if (pushSubscriptions[msg.to]) {
-            webpush.sendNotification(
-                pushSubscriptions[msg.to],
-                JSON.stringify({
-                    title: msg.from,
-                    body: msg.text ? "Neue Nachricht" : "Neue Datei"
-                })
-            ).catch(err => console.error("Push Fehler:", err));
-        }
+if (pushSubscriptions[msg.to]) {
+    webpush.sendNotification(
+        pushSubscriptions[msg.to],
+        JSON.stringify({
+            title: msg.from,
+            body: msg.text ? "Neue Nachricht" : "Neue Datei",
+            chat: msg.from
+        })
+    ).catch(err => console.error("Push Fehler:", err));
+}
     });
 
     socket.on("groupMessage", (msg) => {
@@ -128,10 +129,11 @@ console.log("Subscription vorhanden:",
             if (member !== msg.from && pushSubscriptions[member]) {
                 webpush.sendNotification(
                     pushSubscriptions[member],
-                    JSON.stringify({
-                        title: msg.group,
-                        body: `Neue Nachricht von ${msg.from}`
-                    })
+JSON.stringify({
+    title: msg.group,
+    body: `Neue Nachricht von ${msg.from}`,
+    chat: msg.group
+})
                 ).catch(err => console.error("Push Fehler:", err));
             }
         });
