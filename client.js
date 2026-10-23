@@ -74,10 +74,18 @@ socket.on("connect", () => {
 
         socket.emit("login", { username });
 
+        if (
+            "serviceWorker" in navigator &&
+            "PushManager" in window
+        ) {
+
+            subscribeUserToPush();
+
+        }
+
     }
 
 });
-
 // ============================
 // WAKE-SYNC: Neue Nachrichten abrufen,
 // sobald die App wieder sichtbar wird
