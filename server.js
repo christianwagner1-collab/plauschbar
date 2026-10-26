@@ -159,7 +159,27 @@ JSON.stringify({
 
 socket.on("callUser", ({ from, to }) => {
 
-    if (!sockets[to]) return;
+    console.log(
+        "ANRUF:",
+        from,
+        "->",
+        to
+    );
+
+    if (!sockets[to]) {
+
+        console.log(
+            "Empfänger nicht online:",
+            to
+        );
+
+        return;
+    }
+
+    console.log(
+        "Sende incomingCall an:",
+        to
+    );
 
     io.to(sockets[to]).emit(
         "incomingCall",
@@ -171,6 +191,13 @@ socket.on("callUser", ({ from, to }) => {
 });
 
 socket.on("acceptCall", ({ from, to }) => {
+
+    console.log(
+        "ANRUF ANGENOMMEN:",
+        from,
+        "->",
+        to
+    );
 
     if (!sockets[to]) return;
 
@@ -185,6 +212,13 @@ socket.on("acceptCall", ({ from, to }) => {
 
 socket.on("rejectCall", ({ from, to }) => {
 
+    console.log(
+        "ANRUF ABGELEHNT:",
+        from,
+        "->",
+        to
+    );
+
     if (!sockets[to]) return;
 
     io.to(sockets[to]).emit(
@@ -196,38 +230,86 @@ socket.on("rejectCall", ({ from, to }) => {
 
 });
 
-    socket.on("disconnect", () => {
-        if (!socket.username) return;
+/* ===========================
+   DISCONNECT
+=========================== */
 
-        const username = socket.username;
-        const oldSocketId = socket.id;
+socket.on("disconnect", () => {
 
-        console.log(`Disconnect erkannt: ${username} – warte auf Reconnect...`);
+    if (!socket.username) return;
 
-        setTimeout(() => {
-            if (sockets[username] && sockets[username] !== oldSocketId) {
-                console.log(`User wieder verbunden: ${username}`);
-                return;
-            }
+    const username = socket.username;
+    const oldSocketId = socket.id;
 
-            if (!sockets[username]) {
-                console.log(`User wirklich offline: ${username}`);
-                onlineUsers = onlineUsers.filter(u => u !== username);
-                io.emit("onlineUsers", onlineUsers);
-                return;
-            }
+    console.log(
+        `Disconnect erkannt: ${username} – warte auf Reconnect...`
+    );
 
-            console.log(`User wirklich offline: ${username}`);
-            onlineUsers = onlineUsers.filter(u => u !== username);
-            delete sockets[username];
-            io.emit("onlineUsers", onlineUsers);
+    setTimeout(() => {
 
-        }, 5000);
-    });
+        if (
+            sockets[username] &&
+            sockets[username] !== oldSocketId
+        ) {
+
+            console.log(
+                `User wieder verbunden: ${username}`
+            );
+
+            return;
+
+        }
+
+        if (!sockets[username]) {
+
+            console.log(
+                `User wirklich offline: ${username}`
+            );
+
+            onlineUsers =
+                onlineUsers.filter(
+                    u => u !== username
+                );
+
+            io.emit(
+                "onlineUsers",
+                onlineUsers
+            );
+
+            return;
+
+        }
+
+        console.log(
+            `User wirklich offline: ${username}`
+        );
+
+        onlineUsers =
+            onlineUsers.filter(
+                u => u !== username
+            );
+
+        delete sockets[username];
+
+        io.emit(
+            "onlineUsers",
+            onlineUsers
+        );
+
+    }, 5000);
 
 });
+
+});   // ← DIESE ZEILE FEHLT BEI DIR
 
 /* ===========================
    SERVER START
 =========================== */
-http.listen(PORT, () => console.log("Server läuft auf Port", PORT));
+
+http.listen(
+    PORT,
+    () => console.log(
+        "Server läuft auf Port",
+        PORT
+    )
+);
