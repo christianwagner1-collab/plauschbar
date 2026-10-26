@@ -277,11 +277,14 @@ const chatAvatar = document.getElementById("chatAvatar");
 const chatSubTitle = document.getElementById("chatSubTitle");
 const groupMembersBox = document.getElementById("groupMembers");
 
+
 const emojiSelect = document.getElementById("emojiSelect");
 const deleteChatBtn = document.getElementById("deleteChatBtn");
 const recordBtn = document.getElementById("recordBtnHeader");
 const addToGroupBtn = document.getElementById("addToGroupBtn");
 const removeFromGroupBtn = document.getElementById("removeFromGroupBtn");
+
+const callBtn = document.getElementById("callBtn");
 
 /* PIN-LISTE */
 const pins = {
@@ -1184,5 +1187,89 @@ window.addEventListener("load", () => {
         }
 
     }, 1500);
+
+});
+
+/* ===========================
+   AUDIO ANRUF
+=========================== */
+
+callBtn.onclick = () => {
+
+    if (!selectedUser) {
+
+        alert(
+            "Bitte zuerst einen Kontakt auswählen."
+        );
+
+        return;
+    }
+
+    if (groups[selectedUser]) {
+
+        alert(
+            "Telefonie nur für Einzelchats."
+        );
+
+        return;
+    }
+
+    socket.emit(
+        "callUser",
+        {
+            from: username,
+            to: selectedUser
+        }
+    );
+
+    alert(
+        "📞 Anruf wird gestartet..."
+    );
+
+};
+
+socket.on("incomingCall", ({ from }) => {
+
+    const answer = confirm(
+        `📞 ${from} ruft an.\n\nAnnehmen?`
+    );
+
+    if (answer) {
+
+        socket.emit(
+            "acceptCall",
+            {
+                from: username,
+                to: from
+            }
+        );
+
+    } else {
+
+        socket.emit(
+            "rejectCall",
+            {
+                from: username,
+                to: from
+            }
+        );
+
+    }
+
+});
+
+socket.on("callAccepted", ({ from }) => {
+
+    alert(
+        `✅ ${from} hat angenommen`
+    );
+
+});
+
+socket.on("callRejected", ({ from }) => {
+
+    alert(
+        `❌ ${from} hat abgelehnt`
+    );
 
 });
