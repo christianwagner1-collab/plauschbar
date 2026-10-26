@@ -153,6 +153,48 @@ JSON.stringify({
             msg.unread = false;
         });
     });
+/* ===========================
+   AUDIO CALLS
+=========================== */
+
+socket.on("callUser", ({ from, to }) => {
+
+    if (!sockets[to]) return;
+
+    io.to(sockets[to]).emit(
+        "incomingCall",
+        {
+            from
+        }
+    );
+
+});
+
+socket.on("acceptCall", ({ from, to }) => {
+
+    if (!sockets[to]) return;
+
+    io.to(sockets[to]).emit(
+        "callAccepted",
+        {
+            from
+        }
+    );
+
+});
+
+socket.on("rejectCall", ({ from, to }) => {
+
+    if (!sockets[to]) return;
+
+    io.to(sockets[to]).emit(
+        "callRejected",
+        {
+            from
+        }
+    );
+
+});
 
     socket.on("disconnect", () => {
         if (!socket.username) return;
