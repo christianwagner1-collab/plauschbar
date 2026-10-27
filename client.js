@@ -285,6 +285,8 @@ const addToGroupBtn = document.getElementById("addToGroupBtn");
 const removeFromGroupBtn = document.getElementById("removeFromGroupBtn");
 
 const callBtn = document.getElementById("callBtn");
+const hangupBtn =
+    document.getElementById("hangupBtn");
 
 /* PIN-LISTE */
 const pins = {
@@ -1297,6 +1299,7 @@ socket.on("callAccepted", async ({ from }) => {
     alert(
         `✅ ${from} hat angenommen`
     );
+hangupBtn.style.display = "inline-block";
 
     try {
 
@@ -1327,3 +1330,26 @@ socket.on("callAccepted", async ({ from }) => {
     }
 
 });
+/* ===========================
+   AUFLEGEN
+=========================== */
+
+hangupBtn.onclick = () => {
+
+    if (window.localAudioStream) {
+
+        window.localAudioStream
+            .getTracks()
+            .forEach(track => {
+                track.stop();
+            });
+
+    }
+
+    hangupBtn.style.display = "none";
+
+    alert(
+        "📞 Gespräch beendet"
+    );
+
+};
