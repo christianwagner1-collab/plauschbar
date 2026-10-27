@@ -1228,23 +1228,48 @@ callBtn.onclick = () => {
 
 };
 
-socket.on("incomingCall", ({ from }) => {
+socket.on("incomingCall", async ({ from }) => {
 
     const answer = confirm(
         `📞 ${from} ruft an.\n\nAnnehmen?`
     );
 
-    if (answer) {
+if (answer) {
 
-        socket.emit(
-            "acceptCall",
-            {
-                from: username,
-                to: from
-            }
+    try {
+
+        const stream =
+            await navigator.mediaDevices.getUserMedia({
+                audio: true
+            });
+
+        window.localAudioStream =
+            stream;
+
+        console.log(
+            "✅ Mikrofon aktiv"
         );
 
-    } else {
+    } catch (err) {
+
+        alert(
+            "❌ Mikrofon nicht erlaubt"
+        );
+
+        return;
+
+    }
+
+    socket.emit(
+        "acceptCall",
+        {
+            from: username,
+            to: from
+        }
+    );
+
+}
+ else {
 
         socket.emit(
             "rejectCall",
@@ -1258,18 +1283,38 @@ socket.on("incomingCall", ({ from }) => {
 
 });
 
-socket.on("callAccepted", ({ from }) => {
+socket.on("callAccepted", async ({ from }) => {
 
     alert(
         `✅ ${from} hat angenommen`
     );
 
-});
+    try {
 
-socket.on("callRejected", ({ from }) => {
+        const stream =
+            await navigator.mediaDevices.getUserMedia({
+                audio: true
+            });
 
-    alert(
-        `❌ ${from} hat abgelehnt`
-    );
+        window.localAudioStream =
+            stream;
+
+        console.log(
+            "✅ Mikrofon aktiv"
+        );
+
+        alert(
+            "🎤 Mikrofon erfolgreich aktiviert"
+        );
+
+    } catch (err) {
+
+        console.error(err);
+
+        alert(
+            "❌ Mikrofon wurde nicht freigegeben"
+        );
+
+    }
 
 });
