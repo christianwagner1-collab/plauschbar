@@ -1230,46 +1230,56 @@ callBtn.onclick = () => {
 
 socket.on("incomingCall", async ({ from }) => {
 
+    const ringtone = new Audio("/ringtone.mp3");
+
+    ringtone.loop = true;
+    ringtone.volume = 1.0;
+
+    try {
+        await ringtone.play();
+    } catch (err) {
+        console.log(
+            "Klingelton konnte nicht gestartet werden"
+        );
+    }
+
     const answer = confirm(
         `📞 ${from} ruft an.\n\nAnnehmen?`
     );
 
-if (answer) {
+    ringtone.pause();
+    ringtone.currentTime = 0;
 
-    try {
+    if (answer) {
 
-        const stream =
-            await navigator.mediaDevices.getUserMedia({
-                audio: true
-            });
+        try {
 
-        window.localAudioStream =
-            stream;
+            const stream =
+                await navigator.mediaDevices.getUserMedia({
+                    audio: true
+                });
 
-        console.log(
-            "✅ Mikrofon aktiv"
-        );
+            window.localAudioStream = stream;
 
-    } catch (err) {
+        } catch (err) {
 
-        alert(
-            "❌ Mikrofon nicht erlaubt"
-        );
+            alert(
+                "❌ Mikrofon nicht erlaubt"
+            );
 
-        return;
+            return;
 
-    }
-
-    socket.emit(
-        "acceptCall",
-        {
-            from: username,
-            to: from
         }
-    );
 
-}
- else {
+        socket.emit(
+            "acceptCall",
+            {
+                from: username,
+                to: from
+            }
+        );
+
+    } else {
 
         socket.emit(
             "rejectCall",
@@ -1282,7 +1292,6 @@ if (answer) {
     }
 
 });
-
 socket.on("callAccepted", async ({ from }) => {
 
     alert(
