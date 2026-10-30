@@ -1193,6 +1193,19 @@ window.addEventListener("load", () => {
 });
 
 /* ===========================
+   WEBRTC
+=========================== */
+
+let peerConnection = null;
+
+const rtcConfig = {
+    iceServers: [
+        {
+            urls: "stun:stun.l.google.com:19302"
+        }
+    ]
+};
+/* ===========================
    AUDIO ANRUF
 =========================== */
 
@@ -1262,7 +1275,49 @@ socket.on("incomingCall", async ({ from }) => {
                 });
 
             window.localAudioStream = stream;
+	peerConnection =
+    new RTCPeerConnection(
+        rtcConfig
+    );
 
+stream.getTracks().forEach(track => {
+
+    peerConnection.addTrack(
+        track,
+        stream
+    );
+
+});
+
+peerConnection.onicecandidate =
+(event) => {
+
+    if (!event.candidate) return;
+
+    socket.emit(
+        "webrtc-ice-candidate",
+        {
+            to: from,
+            candidate: event.candidate
+        }
+    );
+
+};
+
+const offer =
+    await peerConnection.createOffer();
+
+await peerConnection.setLocalDescription(
+    offer
+);
+
+socket.emit(
+    "webrtc-offer",
+    {
+        to: from,
+        offer
+    }
+);	
         } catch (err) {
 
             alert(
@@ -1353,3 +1408,111 @@ hangupBtn.onclick = () => {
     );
 
 };
+/* ===========================
+   WEBRTC OFFER
+=========================== */
+
+socket.on(
+    "webrtc-offer",
+    async ({ from, offer }) => {
+
+        peerConnection =
+            new RTCPeerConnection(
+                rtcConfig
+            );
+
+        window.localAudioStream
+            .getTracks()
+            .forEach(track => {
+
+                peerConnection.addTrack(
+                    track,
+                    window.localAudioStream
+                );
+
+            });
+
+        peerConnection.ontrack =
+            (event) => {
+
+                const remoteAudio =
+                    new Audio();
+
+                remoteAudio.srcObject =
+                    event.streams[0];
+
+                remoteAudio.play();
+
+            };
+
+        peerConnection.onicecandidate =
+            (event) => {
+
+                if (!event.candidate) return;
+
+                socket.emit(
+                    "webrtc-ice-candidate",
+                    {
+                        to: from,
+                        candidate:
+                            event.candidate
+                    }
+                );
+
+            };
+
+        await peerConnection.setRemoteDescription(
+            offer
+        );
+
+        const answer =
+            await peerConnection.createAnswer();
+
+        await peerConnection.setLocalDescription(
+            answer
+        );
+
+        socket.emit(
+            "webrtc-answer",
+            {
+                to: from,
+                answer
+            }
+        );
+
+    }
+);
+
+/* ===========================
+   WEBRTC ANSWER
+=========================== */
+
+socket.on(
+    "webrtc-answer",
+    async ({ answer }) => {
+
+        if (!peerConnection) return;
+
+        await peerConnection.setRemoteDescription(
+            answer
+        );
+
+    }
+);
+
+/* ===========================
+   WEBRTC ICE
+=========================== */
+
+socket.on(
+    "webrtc-ice-candidate",
+    async ({ candidate }) => {
+
+        if (!peerConnection) return;
+
+        await peerConnection.addIceCandidate(
+            candidate
+        );
+
+    }
+);
