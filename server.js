@@ -1,315 +1,1518 @@
-const webpush = require("web-push");
-let sockets = {};   // username → socket.id
-const express = require("express");
-const app = express();
-const http = require("http").createServer(app);
-const io = require("socket.io")(http, { cors: { origin: "*" } });
+/* ===========================
+   PUSH SERVICE WORKER
+=========================== */
 
-// Render Port oder lokal 3001
-const PORT = process.env.PORT || 3001;
+if ("serviceWorker" in navigator) {
+  navigator.serviceWorker.register("/service-worker.js")
+    .then(() => console.log("Service Worker registriert"))
+    .catch(err => console.error("SW Fehler:", err));
+}
 
-// statische Dateien aus dem Root
-app.use(express.static(__dirname));
+/* ===========================
+   PUSH KLICK → CHAT ÖFFNEN
+=========================== */
 
+navigator.serviceWorker.addEventListener("message", (event) => {
+
+    if (!event.data?.openChat) return;
+
+    const chatName = event.data.openChat;
+
+    console.log("Push geöffnet für:", chatName);
+
+    // Falls Auto-Login erforderlich
+    if (!username && localStorage.username) {
+
+        username = localStorage.username;
+
+        loginScreen.style.display = "none";
+        chatScreen.style.display = "flex";
+
+        socket.emit("login", {
+            username
+        });
+    }
+
+    setTimeout(() => {
+
+        if (friends.includes(chatName)) {
+            selectUser(chatName);
+        }
+
+        if (groups[chatName]) {
+            selectGroup(chatName);
+        }
+
+    }, 500);
+
+});
+/* ===========================
+   TEIL 1 — BASIS & LOGIN
+=========================== */
+
+// ============================
+// SOCKET VERBINDUNG MIT AUTO-RECONNECT
+// ============================
+const socket = io({
+    reconnection: true,
+    reconnectionAttempts: Infinity,
+    reconnectionDelay: 500
+});
+
+
+// --- AUTOMATISCH WIEDER EINLOGGEN ---
+socket.on("connect", () => {
+
+    console.log("Verbunden!");
+
+    if (localStorage.username) {
+
+        username = localStorage.username;
+
+        loginScreen.style.display = "none";
+        chatScreen.style.display = "flex";
+
+        socket.emit("login", { username });
+
+        if (
+            "serviceWorker" in navigator &&
+            "PushManager" in window
+        ) {
+
+            subscribeUserToPush();
+
+        }
+
+    }
+
+});
+// ============================
+// WAKE-SYNC: Neue Nachrichten abrufen,
+// sobald die App wieder sichtbar wird
+// ============================
+document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "visible") {
+        console.log("🔄 Wake-Sync: App wieder sichtbar");
+
+        // Verbindung sicherstellen
+        if (socket.disconnected && !socket.connecting) {
+            socket.connect();
+        }
+
+        // Automatisch einloggen
+        if (localStorage.username) {
+            username = localStorage.username;
+            socket.emit("login", { username });
+        }
+
+        // Ungelesene Nachrichten abrufen
+        socket.emit("requestUnread");
+    }
+});
+
+
+// --- AUTOMATISCHES WIEDERVERBINDEN ---
+socket.on("disconnect", () => {
+    console.log("Verbindung verloren – versuche erneut zu verbinden…");
+});
+
+socket.on("reconnect", () => {
+    console.log("Wieder verbunden!");
+
+    if (localStorage.username) {
+        username = localStorage.username;
+        socket.emit("login", { username });
+    }
+});
+
+// --- LOGIN-FUNKTION ---
+function doLogin(username) {
+    localStorage.username = username;
+
+    socket.emit("login", { username });
+    socket.emit("requestUnread");
+
+    document.getElementById("loginScreen").style.display = "none";
+    document.getElementById("chatScreen").style.display = "block";
+}
+
+// --- PING CHECK ---
+let unread = {};
+setInterval(() => {
+    socket.emit("pingCheck");
+}, 20000);
+
+// --- SOUND ---
+const messageSound = new Audio("dein-sound.mp3");
+messageSound.volume = 0.6;
+
+/* AVATARS */
+const avatars = {
+  "Chris": "😎",
+  "Täubchen": "❤️",
+  "Stefan": "👨‍🔧",
+  "Michael": "🧔",
+  "Andreas": "🐻",
+  "Papa": "😘",
+  "Mama": "😇",
+  "Julia": "😤",
+  "Jessica": "💜",
+  "Dominic": "😍",
+  "Eva": "🤩",
+  "Oliver": "😊",
+  "Manfred": "🤖",
+  "Alexander": "🤓",
+  
+};
+
+const friends = [
+  "Täubchen","Chris","Stefan","Michael","Andreas","Papa","Mama",
+  "Julia","Jessica","Alexander","Eva","Oliver","Manfred","Dominic"
+];
+
+let groups = {};
+let username = null;
+let selectedUser = null;
 let onlineUsers = [];
-let chats = {};
-let groupChats = {};
 
-let groups = {
-    "Familie": ["Papa", "Mama", "Chris", "Täubchen"],
-    "Freunde": ["Chris", "Stefan", "Michael"]
+/* ===========================
+   PUSH SUBSCRIPTION FUNKTION
+=========================== */
+
+async function subscribeUserToPush() {
+  try {
+
+    const registration =
+      await navigator.serviceWorker.ready;
+
+    let subscription =
+      await registration.pushManager.getSubscription();
+
+    if (!subscription) {
+
+      subscription =
+        await registration.pushManager.subscribe({
+
+          userVisibleOnly: true,
+
+          applicationServerKey:
+          "BHpAxlR1IOB5-l9qaZG0ZUcmMzpU1jM3THblOGZfTRmBVvIM61LIaIWbQ-GElC9cySX8wIdesXZ2-REw-RBmxx0"
+
+        });
+
+    }
+
+    socket.emit("saveSubscription", {
+      username: username,
+      subscription: subscription
+    });
+
+    console.log("Push Subscription gespeichert");
+
+  } catch (err) {
+
+    console.error(
+      "Push Subscription Fehler:",
+      err
+    );
+
+  }
+}
+let mediaRecorder = null;
+let audioChunks = [];
+let isRecording = false;
+let typingTimeout = null;
+
+/* ENCRYPTION */
+const SECRET_KEY = "ChristianChatKey2025";
+function encrypt(text) {
+  return CryptoJS.AES.encrypt(text, SECRET_KEY).toString();
+}
+function decrypt(cipher) {
+  try {
+    const bytes = CryptoJS.AES.decrypt(cipher, SECRET_KEY);
+    return bytes.toString(CryptoJS.enc.Utf8);
+  } catch {
+    return "";
+  }
+}
+
+/* DOWNLOAD */
+function downloadBase64(filename, base64) {
+  const a = document.createElement("a");
+  a.href = base64;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+}
+
+/* ELEMENTS */
+const loginScreen = document.getElementById("loginScreen");
+const usernameInput = document.getElementById("usernameInput");
+const loginBtn = document.getElementById("loginBtn");
+const pinInput = document.getElementById("pinInput");
+
+const chatScreen = document.getElementById("chatScreen");
+const messages = document.getElementById("messages");
+const messageInput = document.getElementById("messageInput");
+const sendBtn = document.getElementById("sendBtn");
+
+const fileBtn = document.getElementById("fileBtn");
+const fileInput = document.getElementById("fileInput");
+
+fileBtn.onclick = () => {
+  fileInput.click();
+};
+
+const sidebarOverlay = document.getElementById("sidebarOverlay");
+const openSidebarBtn = document.getElementById("openSidebarBtn");
+const closeSidebarBtn = document.getElementById("closeSidebarBtn");
+
+const userListMobile = document.getElementById("userList");
+const userListDesktop = document.getElementById("userListDesktop");
+
+const chatTitle = document.getElementById("chatTitle");
+const chatAvatar = document.getElementById("chatAvatar");
+const chatSubTitle = document.getElementById("chatSubTitle");
+const groupMembersBox = document.getElementById("groupMembers");
+
+
+const emojiSelect = document.getElementById("emojiSelect");
+const deleteChatBtn = document.getElementById("deleteChatBtn");
+const recordBtn = document.getElementById("recordBtnHeader");
+const addToGroupBtn = document.getElementById("addToGroupBtn");
+const removeFromGroupBtn = document.getElementById("removeFromGroupBtn");
+
+const callBtn = document.getElementById("callBtn");
+const hangupBtn =
+    document.getElementById("hangupBtn");
+
+/* PIN-LISTE */
+const pins = {
+  "Chris": "1968",
+  "Täubchen": "1966",
+  "Papa": "1941",
+  "Mama": "1947",
+  "Stefan": "1974",
+  "Michael": "1967",
+  "Andreas": "1993",
+  "Julia": "1997",
+  "Jessica": "2000",
+  "Dominic": "1996",
+  "Eva": "1969",
+  "Oliver": "1992",
+  "Manfred": "1967",
+  "Alexander": "1995"
+};
+
+/* LOGIN */
+loginBtn.onclick = () => {
+  const name = usernameInput.value.trim();
+  const pin = pinInput.value.trim();
+
+  if (!name) return alert("Bitte Namen eingeben.");
+  if (!pins[name]) return alert("Diesen Benutzer gibt es nicht.");
+  if (pin !== pins[name]) return alert("Falsche PIN!");
+
+  username = name;
+  localStorage.username = name;
+
+  socket.emit("login", { username });
+  socket.emit("requestUnread");
+
+  loginScreen.style.display = "none";
+  chatScreen.style.display = "flex";
+
+  // ⭐ Push aktivieren
+  if ("serviceWorker" in navigator && "PushManager" in window) {
+    subscribeUserToPush();
+  }
+};
+
+/* ONLINE USERS */
+/* ===========================
+   AUTO LOGIN BEIM APP START
+=========================== */
+
+/*
+window.addEventListener("load", () => {
+
+    if (!localStorage.username) return;
+
+    username = localStorage.username;
+
+    loginScreen.style.display = "none";
+    chatScreen.style.display = "flex";
+
+    socket.emit("login", {
+        username
+    });
+
+    socket.emit("requestUnread");
+
+    if (
+        "serviceWorker" in navigator &&
+        "PushManager" in window
+    ) {
+        subscribeUserToPush();
+    }
+
+});
+*/socket.on("onlineUsers", (users) => {
+  onlineUsers = users;
+  renderFriends();
+});
+
+/* GROUPS UPDATED */
+socket.on("groupsUpdated", (g) => {
+  groups = g;
+  renderFriends();
+});
+
+/* FREUNDE RENDERN */
+function renderFriends() {
+  userListMobile.innerHTML = "";
+  userListDesktop.innerHTML = "";
+
+  friends.forEach((name) => {
+    const emoji = avatars[name] || "👤";
+    const isOnline = onlineUsers.includes(name);
+
+    const li = document.createElement("li");
+    li.className = "user-item";
+    li.dataset.name = name;
+
+    li.innerHTML = `
+      <div class="status-dot ${isOnline ? "online" : ""}"></div>
+      <span class="friendName">${emoji} ${name}</span>
+      <span class="redDot" style="display:none;">●</span>
+    `;
+
+    li.querySelector(".friendName").onclick = () => selectUser(name);
+
+    const li2 = li.cloneNode(true);
+    li2.querySelector(".friendName").onclick = () => selectUser(name);
+
+    userListMobile.appendChild(li);
+    userListDesktop.appendChild(li2);
+  });
+
+  Object.keys(groups).forEach(groupName => {
+    const li = document.createElement("li");
+    li.className = "user-item group";
+    li.dataset.name = groupName;
+    li.onclick = () => selectGroup(groupName);
+
+    li.innerHTML = `
+      <div class="status-dot group"></div>
+      <span>👥 ${groupName}</span>
+      <span class="redDot" style="display:none;">●</span>
+    `;
+
+    const li2 = li.cloneNode(true);
+    li2.onclick = () => selectGroup(groupName);
+
+    userListMobile.appendChild(li);
+    userListDesktop.appendChild(li2);
+  });
+}
+
+/* USER AUSWÄHLEN */
+function selectUser(name) {
+  selectedUser = name;
+  const emoji = avatars[name] || "👤";
+
+  chatAvatar.textContent = emoji;
+  chatTitle.textContent = `${emoji} ${name}`;
+  chatSubTitle.textContent = "";
+  groupMembersBox.textContent = "";
+
+  messages.innerHTML = "";
+  clearRedDot(name);
+
+  socket.emit("loadChat", { with: name });
+
+  socket.emit("markAsRead", {
+    user: username,
+    with: name
+  });
+}
+
+/* GRUPPE AUSWÄHLEN */
+function selectGroup(groupName) {
+  selectedUser = groupName;
+
+  chatAvatar.textContent = "👥";
+  chatTitle.textContent = `👥 ${groupName}`;
+  chatSubTitle.textContent = "";
+
+  groupMembersBox.textContent =
+    "Mitglieder: " + groups[groupName].join(", ");
+
+  messages.innerHTML = "";
+  clearRedDot(groupName);
+
+  socket.emit("loadGroupChat", { group: groupName });
+}
+
+/* ===========================
+   TEIL 2 — CHAT & MEDIEN
+=========================== */
+
+/* CHAT HISTORY (1:1) */
+socket.on("chatHistory", (history) => {
+  messages.innerHTML = "";
+  history.forEach(msg => {
+    if (msg.image) {
+      let decrypted = decrypt(msg.image);
+      if (!decrypted || decrypted.length < 50) decrypted = msg.image;
+      addImage(decrypted, msg.from === username, msg.from, msg.id);
+
+    } else if (msg.audio) {
+      addAudio(decrypt(msg.audio), msg.from === username, msg.from, msg.id);
+
+    } else if (msg.video) {
+      addVideo(decrypt(msg.video), msg.from === username, msg.from, msg.id);
+
+    } else if (msg.text) {
+      addMessage(decrypt(msg.text), msg.from === username, msg.from, msg.id);
+    }
+  });
+});
+
+/* GROUP HISTORY */
+socket.on("groupChatHistory", (history) => {
+  messages.innerHTML = "";
+  history.forEach(msg => {
+    addMessage(decrypt(msg.text), msg.from === username, msg.from, msg.id);
+  });
+});
+
+/* SEND MESSAGE */
+sendBtn.onclick = sendMessage;
+messageInput.addEventListener("keydown", e => {
+  if (e.key === "Enter") sendMessage();
+});
+
+function sendMessage() {
+  if (!selectedUser) return;
+
+  const text = messageInput.value.trim();
+  if (!text) return;
+
+  const id = Date.now() + Math.random();
+
+  if (groups[selectedUser]) {
+    socket.emit("groupMessage", {
+      from: username,
+      group: selectedUser,
+      text: encrypt(text),
+      time: Date.now(),
+      id
+    });
+
+    addMessage(text, true, username, id);
+
+  } else {
+    socket.emit("message", {
+      from: username,
+      to: selectedUser,
+      text: encrypt(text),
+      time: Date.now(),
+      id
+    });
+
+    addMessage(text, true, username, id);
+  }
+
+  messageInput.value = "";
+}
+
+/* RECEIVE 1:1 */
+socket.on("message", (msg) => {
+  const isCurrentChat = selectedUser === msg.from;
+
+  if (msg.image) {
+    let decrypted = decrypt(msg.image);
+    if (!decrypted || decrypted.length < 50) decrypted = msg.image;
+    addImage(decrypted, msg.from === username, msg.from, msg.id);
+
+  } else if (msg.audio) {
+    addAudio(decrypt(msg.audio), msg.from === username, msg.from, msg.id);
+
+  } else if (msg.video) {
+    addVideo(decrypt(msg.video), msg.from === username, msg.from, msg.id);
+
+  } else if (msg.text) {
+    addMessage(decrypt(msg.text), msg.from === username, msg.from, msg.id);
+  }
+
+  if (!isCurrentChat) {
+    setRedDot(msg.from);
+    const emoji = avatars[msg.from] || "👤";
+    chatSubTitle.textContent = `Neue Nachricht von ${emoji} ${msg.from}`;
+  }
+
+  if (navigator.vibrate) navigator.vibrate(200);
+  messageSound.play().catch(() => {});
+});
+
+/* RECEIVE GROUP */
+socket.on("groupMessage", (msg) => {
+  const isCurrentGroup = selectedUser === msg.group;
+
+  addMessage(
+    decrypt(msg.text),
+    msg.from === username,
+    msg.from,
+    msg.id
+  );
+
+  if (!isCurrentGroup) {
+    setRedDot(msg.group);
+    chatSubTitle.textContent = `Neue Nachricht in ${msg.group}`;
+  }
+
+  if (navigator.vibrate) navigator.vibrate(200);
+  messageSound.play().catch(() => {});
+});
+
+/* TYPING */
+socket.on("typing", ({ from, to }) => {
+  if (to !== username || from !== selectedUser) return;
+  const emoji = avatars[from] || "👤";
+  chatSubTitle.textContent = `${emoji} ${from} schreibt…`;
+});
+
+socket.on("stopTyping", ({ from, to }) => {
+  if (to !== username || from !== selectedUser) return;
+  chatSubTitle.textContent = "";
+});
+
+/* MESSAGES READ */
+socket.on("messagesRead", ({ by }) => {
+  if (selectedUser === by) {
+    clearRedDot(by);
+  }
+});
+
+/* RED DOT */
+function setRedDot(user) {
+  document.querySelectorAll(".user-item").forEach(li => {
+    if (li.dataset.name === user) {
+      li.querySelector(".redDot").style.display = "inline";
+    }
+  });
+}
+
+function clearRedDot(user) {
+  document.querySelectorAll(".user-item").forEach(li => {
+    if (li.dataset.name === user) {
+      li.querySelector(".redDot").style.display = "none";
+    }
+  });
+}
+
+/* TEXT BUBBLE */
+function addMessage(text, isMe, fromUser, id) {
+  const div = document.createElement("div");
+  div.className = "bubble " + (isMe ? "me" : "them");
+  div.dataset.id = id;
+
+  if (!isMe) {
+    const emoji = avatars[fromUser] || "👤";
+    div.innerHTML = `<strong>${emoji} ${fromUser}:</strong><br>${text}`;
+  } else {
+    div.innerHTML = `
+      <span class="myText">${text}</span>
+      <button class="deleteMsgBtn">🗑️</button>
+    `;
+  }
+
+  messages.appendChild(div);
+  messages.scrollTop = messages.scrollHeight;
+
+  if (isMe) {
+    const btn = div.querySelector(".deleteMsgBtn");
+    btn.onclick = () => {
+      if (!confirm("Diese Nachricht wirklich löschen?")) return;
+
+      div.classList.add("bubble-delete");
+      setTimeout(() => {
+        socket.emit("deleteMessage", {
+          id,
+          user: username,
+          with: selectedUser
+        });
+        div.remove();
+      }, 200);
+    };
+  }
+}
+
+/* ===========================
+   TEIL 3 — MEDIEN & UI
+=========================== */
+
+/* BILD */
+function addImage(src, isMe, fromUser, id) {
+  const div = document.createElement("div");
+  div.className = "bubble " + (isMe ? "me" : "them");
+  div.dataset.id = id;
+
+  if (!isMe) {
+    const emoji = avatars[fromUser] || "👤";
+    div.innerHTML = `<strong>${emoji} ${fromUser}:</strong><br>`;
+  }
+
+  const img = document.createElement("img");
+  img.src = src;
+  img.style.maxWidth = "200px";
+  img.style.borderRadius = "8px";
+  img.style.cursor = "pointer";
+  img.onclick = () => openImageFullscreen(src);
+
+  if (isMe) {
+    const wrapper = document.createElement("div");
+    wrapper.style.display = "flex";
+    wrapper.style.alignItems = "center";
+    wrapper.style.gap = "6px";
+
+    wrapper.appendChild(img);
+
+    const dl = document.createElement("button");
+    dl.textContent = "⬇️";
+    dl.className = "downloadBtn";
+    dl.onclick = () => downloadBase64("bild.jpg", src);
+    wrapper.appendChild(dl);
+
+    const del = document.createElement("button");
+    del.textContent = "🗑️";
+    del.className = "deleteMsgBtn";
+    del.onclick = () => {
+      if (!confirm("Dieses Bild wirklich löschen?")) return;
+      div.classList.add("bubble-delete");
+      setTimeout(() => {
+        socket.emit("deleteMessage", {
+          id,
+          user: username,
+          with: selectedUser
+        });
+        div.remove();
+      }, 200);
+    };
+    wrapper.appendChild(del);
+
+    div.appendChild(wrapper);
+  } else {
+    div.appendChild(img);
+  }
+
+  messages.appendChild(div);
+  messages.scrollTop = messages.scrollHeight;
+}
+
+/* BILD VOLL BILD */
+function openImageFullscreen(src) {
+  const overlay = document.createElement("div");
+  overlay.style.position = "fixed";
+  overlay.style.inset = "0";
+  overlay.style.background = "rgba(0,0,0,0.8)";
+  overlay.style.display = "flex";
+  overlay.style.justifyContent = "center";
+  overlay.style.alignItems = "center";
+  overlay.style.zIndex = "9999";
+  overlay.onclick = () => overlay.remove();
+
+  const img = document.createElement("img");
+  img.src = src;
+  img.style.maxWidth = "95%";
+  overlay.appendChild(img);
+  document.body.appendChild(overlay);
+}
+
+/* VIDEO */
+function addVideo(src, isMe, fromUser, id) {
+  const div = document.createElement("div");
+  div.className = "bubble " + (isMe ? "me" : "them");
+  div.dataset.id = id;
+
+  if (!isMe) {
+    const emoji = avatars[fromUser] || "👤";
+    div.innerHTML = `<strong>${emoji} ${fromUser}:</strong><br>`;
+  }
+
+  const video = document.createElement("video");
+  video.controls = true;
+  video.src = src;
+  video.style.maxWidth = "250px";
+  video.style.borderRadius = "8px";
+
+  if (isMe) {
+    const wrapper = document.createElement("div");
+    wrapper.style.display = "flex";
+    wrapper.style.alignItems = "center";
+    wrapper.style.gap = "6px";
+
+    wrapper.appendChild(video);
+
+    const dl = document.createElement("button");
+    dl.textContent = "⬇️";
+    dl.className = "downloadBtn";
+    dl.onclick = () => downloadBase64("video.mp4", src);
+    wrapper.appendChild(dl);
+
+    const del = document.createElement("button");
+    del.textContent = "🗑️";
+    del.className = "deleteMsgBtn";
+    del.onclick = () => {
+      if (!confirm("Dieses Video wirklich löschen?")) return;
+      div.classList.add("bubble-delete");
+      setTimeout(() => {
+        socket.emit("deleteMessage", {
+          id,
+          user: username,
+          with: selectedUser
+        });
+        div.remove();
+      }, 200);
+    };
+    wrapper.appendChild(del);
+
+    div.appendChild(wrapper);
+  } else {
+    div.appendChild(video);
+  }
+
+  messages.appendChild(div);
+  messages.scrollTop = messages.scrollHeight;
+}
+
+/* AUDIO */
+function addAudio(src, isMe, fromUser, id) {
+  const div = document.createElement("div");
+  div.className = "bubble " + (isMe ? "me" : "them");
+  div.dataset.id = id;
+
+  if (!isMe) {
+    const emoji = avatars[fromUser] || "👤";
+    div.innerHTML = `<strong>${emoji} ${fromUser}:</strong><br>`;
+  }
+
+  const audio = document.createElement("audio");
+  audio.controls = true;
+  audio.src = src;
+
+  if (isMe) {
+    const wrapper = document.createElement("div");
+    wrapper.style.display = "flex";
+    wrapper.style.alignItems = "center";
+    wrapper.style.gap = "6px";
+
+    wrapper.appendChild(audio);
+
+    const dl = document.createElement("button");
+    dl.textContent = "⬇️";
+    dl.className = "downloadBtn";
+    dl.onclick = () => downloadBase64("audio.webm", src);
+    wrapper.appendChild(dl);
+
+    const del = document.createElement("button");
+    del.textContent = "🗑️";
+    del.className = "deleteMsgBtn";
+    del.onclick = () => {
+      if (!confirm("Diese Sprachnachricht wirklich löschen?")) return;
+      div.classList.add("bubble-delete");
+      setTimeout(() => {
+        socket.emit("deleteMessage", {
+          id,
+          user: username,
+          with: selectedUser
+        });
+        div.remove();
+      }, 200);
+    };
+    wrapper.appendChild(del);
+
+    div.appendChild(wrapper);
+  } else {
+    div.appendChild(audio);
+  }
+
+  messages.appendChild(div);
+  messages.scrollTop = messages.scrollHeight;
+}
+
+/* SERVER MELDET: NACHRICHT GELÖSCHT */
+socket.on("messageDeleted", ({ id }) => {
+  const bubble = document.querySelector(`.bubble[data-id="${id}"]`);
+  if (bubble) {
+    bubble.classList.add("bubble-delete");
+    setTimeout(() => bubble.remove(), 200);
+  }
+});
+
+/* EMOJI */
+emojiSelect.onchange = () => {
+  const emoji = emojiSelect.value;
+  if (emoji) {
+    messageInput.value += emoji;
+    emojiSelect.value = "";
+    messageInput.focus();
+  }
+};
+
+/* FILE UPLOAD (BILD + VIDEO, ohne Kompression) */
+fileInput.onchange = async () => {
+  if (!selectedUser) return;
+  if (groups[selectedUser]) {
+    alert("Medien können nur in 1:1 Chats gesendet werden.");
+    return;
+  }
+
+  const file = fileInput.files[0];
+  if (!file) return;
+
+  fileInput.value = "";
+  const id = Date.now() + Math.random();
+
+  // ⭐ BILDER
+  if (file.type.startsWith("image/")) {
+    const reader = new FileReader();
+
+    reader.onload = async () => {
+      const base64 = reader.result;
+      const resized = await resizeImageIfNeeded(base64);
+      const encrypted = encrypt(resized);
+
+      socket.emit("message", {
+        from: username,
+        to: selectedUser,
+        image: encrypted,
+        time: Date.now(),
+        id
+      });
+
+      addImage(resized, true, username, id);
+    };
+
+    reader.readAsDataURL(file);
+    return;
+  }
+
+  // ⭐ VIDEOS
+  if (file.type.startsWith("video/")) {
+    const reader = new FileReader();
+
+    reader.onload = () => {
+      const base64 = reader.result;
+      const encrypted = encrypt(base64);
+
+      socket.emit("message", {
+        from: username,
+        to: selectedUser,
+        video: encrypted,
+        time: Date.now(),
+        id
+      });
+
+      addVideo(base64, true, username, id);
+    };
+
+    reader.readAsDataURL(file);
+    return;
+  }
+
+  alert("Dieser Dateityp wird nicht unterstützt.");
 };
 
 /* ===========================
-   PUSH VAPID KEYS
+   TEIL 4 — AUDIO RECORD
 =========================== */
-webpush.setVapidDetails(
-    "mailto:deine@mail.com",
-    "BHpAxlR1IOB5-l9qaZG0ZUcmMzpU1jM3THblOGZfTRmBVvIM61LIaIWbQ-GElC9cySX8wIdesXZ2-REw-RBmxx0",
-    "SEJZFk1QACGLJyKm6FE12GO6Nhrxu_EZaWsXdvkJMCE"
-);
 
-let pushSubscriptions = {};
+recordBtn.onclick = async () => {
+  if (!selectedUser) return;
+  if (groups[selectedUser]) return;
+
+  if (!isRecording) {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      mediaRecorder = new MediaRecorder(stream);
+      audioChunks = [];
+
+      mediaRecorder.ondataavailable = e => audioChunks.push(e.data);
+
+      mediaRecorder.onstop = () => {
+        const blob = new Blob(audioChunks, { type: "audio/webm" });
+        const reader = new FileReader();
+        const id = Date.now() + Math.random();
+
+        reader.onloadend = () => {
+          const base64 = reader.result;
+          const encrypted = encrypt(base64);
+
+          socket.emit("message", {
+            from: username,
+            to: selectedUser,
+            audio: encrypted,
+            time: Date.now(),
+            id
+          });
+
+          addAudio(base64, true, username, id);
+        };
+        reader.readAsDataURL(blob);
+      };
+
+      mediaRecorder.start();
+      isRecording = true;
+      recordBtn.textContent = "⏹️";
+
+    } catch {
+      alert("Bitte Mikrofon erlauben.");
+    }
+
+  } else {
+    mediaRecorder.stop();
+    isRecording = false;
+    recordBtn.textContent = "🎙️";
+  }
+};
 
 /* ===========================
-   SOCKET.IO
+   TEIL 5 — GROUPS / DELETE / SIDEBAR
 =========================== */
-io.on("connection", (socket) => {
 
-    socket.on("saveSubscription", ({ username, subscription }) => {
-        pushSubscriptions[username] = subscription;
-        console.log("Push Subscription gespeichert für:", username);
-    });
+/* GROUP ADD */
+addToGroupBtn.onclick = () => {
+  if (!selectedUser) return;
+  if (!groups[selectedUser]) {
+    alert("Nur Gruppen können erweitert werden.");
+    return;
+  }
 
-    socket.on("login", ({ username }) => {
-        if (socket.username === username) return;
+  const friend = prompt("Welchen Freund möchtest du hinzufügen?");
+  if (!friend || !friends.includes(friend)) {
+    alert("Dieser Freund existiert nicht.");
+    return;
+  }
 
-        console.log("Login:", username);
-        socket.username = username;
+  socket.emit("addToGroup", {
+    group: selectedUser,
+    friend
+  });
+};
 
-        sockets[username] = socket.id;
+/* GROUP REMOVE */
+removeFromGroupBtn.onclick = () => {
+  if (!selectedUser) return;
+  if (!groups[selectedUser]) {
+    alert("Nur Gruppen können geändert werden.");
+    return;
+  }
 
-        onlineUsers = onlineUsers.filter(u => u !== username);
-        onlineUsers.push(username);
+  const friend = prompt("Welches Mitglied soll entfernt werden?");
+  if (!friend || !groups[selectedUser].includes(friend)) {
+    alert("Dieses Mitglied ist nicht in der Gruppe.");
+    return;
+  }
 
-        io.emit("onlineUsers", onlineUsers);
-        socket.emit("groupsUpdated", groups);
+  socket.emit("removeFromGroup", {
+    group: selectedUser,
+    friend
+  });
+};
 
-        let unread = [];
+/* GANZEN CHAT LÖSCHEN */
+deleteChatBtn.onclick = () => {
+  if (!selectedUser) return;
+  if (groups[selectedUser]) return;
 
-        Object.keys(chats).forEach(key => {
-            chats[key].forEach(msg => {
-                if (msg.to === username && msg.unread) unread.push(msg);
-            });
-        });
+  if (!confirm(`Chat mit ${selectedUser} wirklich löschen?`)) return;
 
-        unread.forEach(msg => {
-            io.to(socket.id).emit("message", msg);
-            msg.unread = false;
-        });
+  messages.innerHTML = "";
 
-        const unreadFrom = [...new Set(unread.map(m => m.from))];
-        socket.emit("unreadList", unreadFrom);
-    });
+  socket.emit("deleteChat", {
+    user: username,
+    with: selectedUser
+  });
 
-    socket.on("loadChat", ({ with: partner }) => {
-        const key = [socket.username, partner].sort().join("_");
-        if (!chats[key]) chats[key] = [];
-        socket.emit("chatHistory", chats[key]);
-    });
+  clearRedDot(selectedUser);
+  chatSubTitle.textContent = "";
+};
 
-    socket.on("loadGroupChat", ({ group }) => {
-        if (!groupChats[group]) groupChats[group] = [];
-        socket.emit("groupChatHistory", groupChats[group]);
-    });
+socket.on("chatDeleted", ({ with: partner }) => {
+  if (selectedUser === partner) {
+    messages.innerHTML = "";
+    chatSubTitle.textContent = "";
+  }
+});
 
-    socket.on("message", (msg) => {
-        const key = [msg.from, msg.to].sort().join("_");
+/* SIDEBAR */
+openSidebarBtn.onclick = () => {
+  sidebarOverlay.classList.remove("hidden");
+};
 
-        msg.id = Date.now() + Math.random();
-        msg.unread = true;
+closeSidebarBtn.onclick = () => {
+  sidebarOverlay.classList.add("hidden");
+};
 
-        if (!chats[key]) chats[key] = [];
-        chats[key].push(msg);
+sidebarOverlay.onclick = () => {
+  sidebarOverlay.classList.add("hidden");
+};
 
-        if (sockets[msg.to]) {
-            io.to(sockets[msg.to]).emit("message", msg);
-            msg.unread = false;
-        }
-	console.log("Push für:", msg.to);
-console.log("Subscription vorhanden:",
-    !!pushSubscriptions[msg.to]);
-if (pushSubscriptions[msg.to]) {
-    webpush.sendNotification(
-        pushSubscriptions[msg.to],
-        JSON.stringify({
-            title: msg.from,
-            body: msg.text ? "Neue Nachricht" : "Neue Datei",
-            chat: msg.from
-        })
-    ).catch(err => console.error("Push Fehler:", err));
+document.getElementById("sidebar").onclick = (e) => {
+  e.stopPropagation();
+};
+
+/* ===========================
+   TEIL 6 — RESIZE & COMPRESS
+=========================== */
+
+/* IMAGE RESIZE FUNCTION */
+async function resizeImageIfNeeded(base64) {
+  return new Promise(resolve => {
+    const img = new Image();
+    img.onload = () => {
+      const MAX = 1280;
+
+      let w = img.width;
+      let h = img.height;
+
+      if (w <= MAX && h <= MAX) {
+        return resolve(base64);
+      }
+
+      if (w > h) {
+        h = Math.round(h * (MAX / w));
+        w = MAX;
+      } else {
+        w = Math.round(w * (MAX / h));
+        h = MAX;
+      }
+
+      const canvas = document.createElement("canvas");
+      canvas.width = w;
+      canvas.height = h;
+
+      const ctx = canvas.getContext("2d");
+      ctx.drawImage(img, 0, 0, w, h);
+
+      resolve(canvas.toDataURL("image/jpeg", 0.85));
+    };
+    img.src = base64;
+  });
 }
-    });
 
-    socket.on("groupMessage", (msg) => {
-        msg.id = Date.now() + Math.random();
-        msg.unread = true;
+/* VIDEO COMPRESS FUNCTION */
+async function compressVideo(file) {
+  return new Promise(resolve => {
+    const video = document.createElement("video");
+    video.src = URL.createObjectURL(file);
 
-        if (!groupChats[msg.group]) groupChats[msg.group] = [];
-        groupChats[msg.group].push(msg);
+    video.onloadedmetadata = () => {
+      const canvas = document.createElement("canvas");
 
-        groups[msg.group].forEach(member => {
-            if (sockets[member] && member !== msg.from) {
-                io.to(sockets[member]).emit("groupMessage", msg);
-                msg.unread = false;
-            }
-        });
+      const MAX = 720;
+      let w = video.videoWidth;
+      let h = video.videoHeight;
 
-        groups[msg.group].forEach(member => {
-            if (member !== msg.from && pushSubscriptions[member]) {
-                webpush.sendNotification(
-                    pushSubscriptions[member],
-JSON.stringify({
-    title: msg.group,
-    body: `Neue Nachricht von ${msg.from}`,
-    chat: msg.group
-})
-                ).catch(err => console.error("Push Fehler:", err));
-            }
-        });
-    });
+      if (w > h) {
+        h = Math.round(h * (MAX / w));
+        w = MAX;
+      } else {
+        w = Math.round(w * (MAX / h));
+        h = MAX;
+      }
 
-    socket.on("requestUnread", () => {
-        let unread = [];
+      canvas.width = w;
+      canvas.height = h;
 
-        Object.keys(chats).forEach(key => {
-            chats[key].forEach(msg => {
-                if (msg.to === socket.username && msg.unread) unread.push(msg);
-            });
-        });
+      const ctx = canvas.getContext("2d");
 
-        unread.forEach(msg => {
-            io.to(socket.id).emit("message", msg);
-            msg.unread = false;
-        });
-    });
+      const stream = canvas.captureStream();
+      const recorder = new MediaRecorder(stream, {
+        mimeType: "video/webm",
+        videoBitsPerSecond: 800000
+      });
+
+      const chunks = [];
+
+      recorder.ondataavailable = e => chunks.push(e.data);
+      recorder.onstop = () => {
+        const blob = new Blob(chunks, { type: "video/webm" });
+        const reader = new FileReader();
+        reader.onloadend = () => resolve(reader.result);
+        reader.readAsDataURL(blob);
+      };
+
+      recorder.start();
+
+      const draw = () => {
+        ctx.drawImage(video, 0, 0, w, h);
+        if (!video.paused && !video.ended) {
+          requestAnimationFrame(draw);
+        }
+      };
+
+      video.play().then(() => {
+        draw();
+        video.onended = () => recorder.stop();
+      });
+    };
+  });
+}
 /* ===========================
-   AUDIO CALLS
+   CHAT AUS URL ÖFFNEN
 =========================== */
 
-socket.on("callUser", ({ from, to }) => {
+window.addEventListener("load", () => {
 
-    console.log(
-        "ANRUF:",
-        from,
-        "->",
-        to
-    );
+    const params = new URLSearchParams(window.location.search);
+    const chatName = params.get("chat");
 
-    if (!sockets[to]) {
+    if (!chatName) return;
 
-        console.log(
-            "Empfänger nicht online:",
-            to
+    console.log("Chat aus URL:", chatName);
+
+    setTimeout(() => {
+
+        if (friends.includes(chatName)) {
+            selectUser(chatName);
+            return;
+        }
+
+        if (groups[chatName]) {
+            selectGroup(chatName);
+            return;
+        }
+
+    }, 1500);
+
+});
+
+/* ===========================
+   WEBRTC
+=========================== */
+
+let peerConnection = null;
+
+const rtcConfig = {
+    iceServers: [
+        {
+            urls: "stun:stun.l.google.com:19302"
+        }
+    ]
+};
+/* ===========================
+   AUDIO ANRUF
+=========================== */
+
+callBtn.onclick = () => {
+
+    if (!selectedUser) {
+
+        alert(
+            "Bitte zuerst einen Kontakt auswählen."
         );
 
         return;
     }
 
-    console.log(
-        "Sende incomingCall an:",
-        to
+    if (groups[selectedUser]) {
+
+        alert(
+            "Telefonie nur für Einzelchats."
+        );
+
+        return;
+    }
+
+    socket.emit(
+        "callUser",
+        {
+            from: username,
+            to: selectedUser
+        }
     );
 
-    io.to(sockets[to]).emit(
-        "incomingCall",
-        {
-            from
-        }
+    alert(
+        "📞 Anruf wird gestartet..."
+    );
+
+};
+
+socket.on("incomingCall", async ({ from }) => {
+
+    const ringtone = new Audio("/ringtone.mp3");
+
+    ringtone.loop = true;
+    ringtone.volume = 1.0;
+
+    try {
+        await ringtone.play();
+    } catch (err) {
+        console.log(
+            "Klingelton konnte nicht gestartet werden"
+        );
+    }
+
+    const answer = confirm(
+        `📞 ${from} ruft an.\n\nAnnehmen?`
+    );
+
+    ringtone.pause();
+    ringtone.currentTime = 0;
+
+    if (answer) {
+
+        try {
+
+            const stream =
+                await navigator.mediaDevices.getUserMedia({
+                    audio: true
+                });
+
+            window.localAudioStream = stream;
+	peerConnection =
+    new RTCPeerConnection(
+        rtcConfig
+    );
+
+stream.getTracks().forEach(track => {
+
+    peerConnection.addTrack(
+        track,
+        stream
     );
 
 });
 
-socket.on("acceptCall", ({ from, to }) => {
+peerConnection.onicecandidate =
+(event) => {
 
-    console.log(
-        "ANRUF ANGENOMMEN:",
-        from,
-        "->",
-        to
-    );
+    if (!event.candidate) return;
 
-    if (!sockets[to]) return;
-
-    io.to(sockets[to]).emit(
-        "callAccepted",
+    socket.emit(
+        "webrtc-ice-candidate",
         {
-            from
+            to: from,
+            candidate: event.candidate
         }
     );
 
-});
+};
 
-socket.on("rejectCall", ({ from, to }) => {
+const offer =
+    await peerConnection.createOffer();
 
-    console.log(
-        "ANRUF ABGELEHNT:",
-        from,
-        "->",
-        to
-    );
+await peerConnection.setLocalDescription(
+    offer
+);
 
-    if (!sockets[to]) return;
+socket.emit(
+    "webrtc-offer",
+    {
+        to: from,
+        offer
+    }
+);	
+        } catch (err) {
 
-    io.to(sockets[to]).emit(
-        "callRejected",
-        {
-            from
-        }
-    );
-
-});
-
-/* ===========================
-   DISCONNECT
-=========================== */
-
-socket.on("disconnect", () => {
-
-    if (!socket.username) return;
-
-    const username = socket.username;
-    const oldSocketId = socket.id;
-
-    console.log(
-        `Disconnect erkannt: ${username} – warte auf Reconnect...`
-    );
-
-    setTimeout(() => {
-
-        if (
-            sockets[username] &&
-            sockets[username] !== oldSocketId
-        ) {
-
-            console.log(
-                `User wieder verbunden: ${username}`
+            alert(
+                "❌ Mikrofon nicht erlaubt"
             );
 
             return;
 
         }
 
-        if (!sockets[username]) {
+        socket.emit(
+            "acceptCall",
+            {
+                from: username,
+                to: from
+            }
+        );
 
-            console.log(
-                `User wirklich offline: ${username}`
-            );
+    } else {
 
-            onlineUsers =
-                onlineUsers.filter(
-                    u => u !== username
-                );
+        socket.emit(
+            "rejectCall",
+            {
+                from: username,
+                to: from
+            }
+        );
 
-            io.emit(
-                "onlineUsers",
-                onlineUsers
-            );
+    }
 
-            return;
+});
+socket.on("callAccepted", async ({ from }) => {
 
-        }
+    alert(
+        `✅ ${from} hat angenommen`
+    );
+hangupBtn.style.display = "inline-block";
+
+    try {
+
+        const stream =
+            await navigator.mediaDevices.getUserMedia({
+                audio: true
+            });
+
+        window.localAudioStream =
+            stream;
 
         console.log(
-            `User wirklich offline: ${username}`
+            "✅ Mikrofon aktiv"
         );
 
-        onlineUsers =
-            onlineUsers.filter(
-                u => u !== username
-            );
-
-        delete sockets[username];
-
-        io.emit(
-            "onlineUsers",
-            onlineUsers
+        alert(
+            "🎤 Mikrofon erfolgreich aktiviert"
         );
 
-    }, 5000);
+    } catch (err) {
+
+        console.error(err);
+
+        alert(
+            "❌ Mikrofon wurde nicht freigegeben"
+        );
+
+    }
 
 });
-
-});   // ← DIESE ZEILE FEHLT BEI DIR
-
 /* ===========================
-   SERVER START
+   AUFLEGEN
 =========================== */
 
-http.listen(
-    PORT,
-    () => console.log(
-        "Server läuft auf Port",
-        PORT
-    )
+hangupBtn.onclick = () => {
+
+    if (window.localAudioStream) {
+
+        window.localAudioStream
+            .getTracks()
+            .forEach(track => {
+                track.stop();
+            });
+
+    }
+
+    hangupBtn.style.display = "none";
+
+    alert(
+        "📞 Gespräch beendet"
+    );
+
+};
+/* ===========================
+   WEBRTC OFFER
+=========================== */
+
+socket.on(
+    "webrtc-offer",
+    async ({ from, offer }) => {
+
+        peerConnection =
+            new RTCPeerConnection(
+                rtcConfig
+            );
+
+        window.localAudioStream
+            .getTracks()
+            .forEach(track => {
+
+                peerConnection.addTrack(
+                    track,
+                    window.localAudioStream
+                );
+
+            });
+
+        peerConnection.ontrack =
+            (event) => {
+
+                const remoteAudio =
+                    new Audio();
+
+                remoteAudio.srcObject =
+                    event.streams[0];
+
+                remoteAudio.play();
+
+            };
+
+        peerConnection.onicecandidate =
+            (event) => {
+
+                if (!event.candidate) return;
+
+                socket.emit(
+                    "webrtc-ice-candidate",
+                    {
+                        to: from,
+                        candidate:
+                            event.candidate
+                    }
+                );
+
+            };
+
+        await peerConnection.setRemoteDescription(
+            offer
+        );
+
+        const answer =
+            await peerConnection.createAnswer();
+
+        await peerConnection.setLocalDescription(
+            answer
+        );
+
+        socket.emit(
+            "webrtc-answer",
+            {
+                to: from,
+                answer
+            }
+        );
+
+    }
+);
+
+/* ===========================
+   WEBRTC ANSWER
+=========================== */
+
+socket.on(
+    "webrtc-answer",
+    async ({ answer }) => {
+
+        if (!peerConnection) return;
+
+        await peerConnection.setRemoteDescription(
+            answer
+        );
+
+    }
+);
+
+/* ===========================
+   WEBRTC ICE
+=========================== */
+
+socket.on(
+    "webrtc-ice-candidate",
+    async ({ candidate }) => {
+
+        if (!peerConnection) return;
+
+        await peerConnection.addIceCandidate(
+            candidate
+        );
+
+    }
 );
