@@ -150,7 +150,7 @@ messageSound.volume = 0.6;
 const avatars = {
   "Chris": "😎",
   "Täubchen": "❤️",
-  "Stefan": "👨‍🔧",
+  "Stefan": "👨🔧",
   "Michael": "🧔",
   "Andreas": "🐻",
   "Papa": "😘",
@@ -1193,19 +1193,6 @@ window.addEventListener("load", () => {
 });
 
 /* ===========================
-   WEBRTC
-=========================== */
-
-let peerConnection = null;
-
-const rtcConfig = {
-    iceServers: [
-        {
-            urls: "stun:stun.l.google.com:19302"
-        }
-    ]
-};
-/* ===========================
    AUDIO ANRUF
 =========================== */
 
@@ -1275,49 +1262,7 @@ socket.on("incomingCall", async ({ from }) => {
                 });
 
             window.localAudioStream = stream;
-	peerConnection =
-    new RTCPeerConnection(
-        rtcConfig
-    );
 
-stream.getTracks().forEach(track => {
-
-    peerConnection.addTrack(
-        track,
-        stream
-    );
-
-});
-
-peerConnection.onicecandidate =
-(event) => {
-
-    if (!event.candidate) return;
-
-    socket.emit(
-        "webrtc-ice-candidate",
-        {
-            to: from,
-            candidate: event.candidate
-        }
-    );
-
-};
-
-const offer =
-    await peerConnection.createOffer();
-
-await peerConnection.setLocalDescription(
-    offer
-);
-
-socket.emit(
-    "webrtc-offer",
-    {
-        to: from,
-        offer
-    }
-);	
         } catch (err) {
 
             alert(
@@ -1354,7 +1299,8 @@ socket.on("callAccepted", async ({ from }) => {
     alert(
         `✅ ${from} hat angenommen`
     );
-hangupBtn.style.display = "inline-block";
+
+    hangupBtn.style.display = "inline-block";
 
     try {
 
@@ -1365,6 +1311,51 @@ hangupBtn.style.display = "inline-block";
 
         window.localAudioStream =
             stream;
+
+        peerConnection =
+            new RTCPeerConnection(
+                rtcConfig
+            );
+
+        stream.getTracks().forEach(track => {
+
+            peerConnection.addTrack(
+                track,
+                stream
+            );
+
+        });
+
+        peerConnection.onicecandidate =
+        (event) => {
+
+            if (!event.candidate) return;
+
+            socket.emit(
+                "webrtc-ice-candidate",
+                {
+                    to: from,
+                    candidate:
+                        event.candidate
+                }
+            );
+
+        };
+
+        const offer =
+            await peerConnection.createOffer();
+
+        await peerConnection.setLocalDescription(
+            offer
+        );
+
+        socket.emit(
+            "webrtc-offer",
+            {
+                to: from,
+                offer
+            }
+        );
 
         console.log(
             "✅ Mikrofon aktiv"
@@ -1408,6 +1399,21 @@ hangupBtn.onclick = () => {
     );
 
 };
+
+/* ===========================
+   WEBRTC
+=========================== */
+
+let peerConnection = null;
+
+const rtcConfig = {
+    iceServers: [
+        {
+            urls: "stun:stun.l.google.com:19302"
+        }
+    ]
+};
+
 /* ===========================
    WEBRTC OFFER
 =========================== */
@@ -1510,9 +1516,20 @@ socket.on(
 
         if (!peerConnection) return;
 
-        await peerConnection.addIceCandidate(
-            candidate
-        );
+        try {
+
+            await peerConnection.addIceCandidate(
+                candidate
+            );
+
+        } catch (err) {
+
+            console.error(
+                "ICE Fehler:",
+                err
+            );
+
+        }
 
     }
 );
