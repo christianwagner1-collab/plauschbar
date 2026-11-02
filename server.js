@@ -256,6 +256,23 @@ socket.on("rejectCall", ({ from, to }) => {
 });
 
 /* ===========================
+   HANGUP
+=========================== */
+
+socket.on("hangupCall", ({ from, to }) => {
+
+    if (!sockets[to]) return;
+
+    io.to(sockets[to]).emit(
+        "callEnded",
+        {
+            from
+        }
+    );
+
+});
+
+/* ===========================
    WEBRTC SIGNALING
 =========================== */
 
