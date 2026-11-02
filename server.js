@@ -139,31 +139,6 @@ JSON.stringify({
         });
     });
 
-/* ===========================
-   TYPING
-=========================== */
-
-socket.on("typing", ({ from, to }) => {
-
-    if (!sockets[to]) return;
-
-    io.to(sockets[to]).emit(
-        "typing",
-        { from }
-    );
-
-});
-
-socket.on("stopTyping", ({ from, to }) => {
-
-    if (!sockets[to]) return;
-
-    io.to(sockets[to]).emit(
-        "stopTyping",
-        { from }
-    );
-
-});
     socket.on("requestUnread", () => {
         let unread = [];
 
