@@ -1533,3 +1533,113 @@ socket.on(
 
     }
 );
+/* ===========================
+   TYPING INDICATOR
+=========================== */
+
+
+if (
+    typeof messageInput !== "undefined"
+) {
+
+    messageInput.addEventListener(
+        "input",
+        () => {
+
+            try {
+
+                if (!selectedUser) return;
+
+                if (
+                    typeof groups !== "undefined" &&
+                    groups[selectedUser]
+                ) {
+                    return;
+                }
+
+                socket.emit(
+                    "typing",
+                    {
+                        from: username,
+                        to: selectedUser
+                    }
+                );
+
+                clearTimeout(
+                    typingTimeout
+                );
+
+                typingTimeout =
+                    setTimeout(() => {
+
+                        socket.emit(
+                            "stopTyping",
+                            {
+                                from: username,
+                                to: selectedUser
+                            }
+                        );
+
+                    }, 1000);
+
+            } catch (err) {
+
+                console.error(
+                    "Typing Fehler:",
+                    err
+                );
+
+            }
+
+        }
+    );
+
+}
+
+socket.on(
+    "typing",
+    ({ from }) => {
+
+        try {
+
+            if (!selectedUser) return;
+
+            if (selectedUser !== from) return;
+
+            if (!chatSubTitle) return;
+
+            chatSubTitle.textContent =
+                "schreibt ...";
+
+        } catch (err) {
+
+            console.error(err);
+
+        }
+
+    }
+);
+
+socket.on(
+    "stopTyping",
+    ({ from }) => {
+
+        try {
+
+            if (!selectedUser) return;
+
+            if (selectedUser !== from) return;
+
+            if (!chatSubTitle) return;
+
+            chatSubTitle.textContent =
+                "";
+
+        } catch (err) {
+
+            console.error(err);
+
+        }
+
+    }
+);
