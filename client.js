@@ -1422,6 +1422,32 @@ socket.on("callAccepted", async ({ from }) => {
     }
 
 });
+socket.on(
+    "callEnded",
+    ({ from }) => {
+
+        if (window.localAudioStream) {
+
+            window.localAudioStream
+                .getTracks()
+                .forEach(track => {
+
+                    track.stop();
+
+                });
+
+        }
+
+        hangupBtn.style.display =
+            "none";
+
+        alert(
+            `📞 ${from} hat aufgelegt`
+        );
+
+    }
+);
+
 /* ===========================
    AUFLEGEN
 =========================== */
@@ -1433,8 +1459,22 @@ hangupBtn.onclick = () => {
         window.localAudioStream
             .getTracks()
             .forEach(track => {
+
                 track.stop();
+
             });
+
+    }
+
+    if (selectedUser) {
+
+        socket.emit(
+            "hangupCall",
+            {
+                from: username,
+                to: selectedUser
+            }
+        );
 
     }
 
@@ -1445,7 +1485,6 @@ hangupBtn.onclick = () => {
     );
 
 };
-
 /* ===========================
    WEBRTC
 =========================== */
