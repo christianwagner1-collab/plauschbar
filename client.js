@@ -192,7 +192,23 @@ async function subscribeUserToPush() {
 
       subscription =
         await registration.pushManager.subscribe({
-  
+
+          userVisibleOnly: true,
+
+          applicationServerKey:
+          "BHpAxlR1IOB5-l9qaZG0ZUcmMzpU1jM3THblOGZfTRmBVvIM61LIaIWbQ-GElC9cySX8wIdesXZ2-REw-RBmxx0"
+
+        });
+
+    }
+
+    socket.emit("saveSubscription", {
+      username: username,
+      subscription: subscription
+    });
+
+    console.log("Push Subscription gespeichert");
+
   } catch (err) {
 
     console.error(
@@ -1514,75 +1530,6 @@ socket.on(
             );
 
         }
-
-    }
-);
-/* ===========================
-   TYPING INDICATOR
-=========================== */
-
-let typingTimeout = null;
-
-messageInput.addEventListener(
-    "input",
-    () => {
-
-        if (!selectedUser) return;
-
-        if (groups[selectedUser]) return;
-
-        socket.emit(
-            "typing",
-            {
-                from: username,
-                to: selectedUser
-            }
-        );
-
-        clearTimeout(
-            typingTimeout
-        );
-
-        typingTimeout =
-            setTimeout(() => {
-
-                socket.emit(
-                    "stopTyping",
-                    {
-                        from: username,
-                        to: selectedUser
-                    }
-                );
-
-            }, 1000);
-
-    }
-);
-
-socket.on(
-    "typing",
-    ({ from }) => {
-
-        if (
-            selectedUser !== from
-        ) return;
-
-        chatSubTitle.textContent =
-            "schreibt ...";
-
-    }
-);
-
-socket.on(
-    "stopTyping",
-    ({ from }) => {
-
-        if (
-            selectedUser !== from
-        ) return;
-
-        chatSubTitle.textContent =
-            "";
 
     }
 );
