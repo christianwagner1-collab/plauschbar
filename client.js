@@ -734,61 +734,107 @@ function openImageFullscreen(src) {
 
 /* VIDEO */
 function addVideo(src, isMe, fromUser, id) {
-  const div = document.createElement("div");
-  div.className = "bubble " + (isMe ? "me" : "them");
-  div.dataset.id = id;
 
-  if (!isMe) {
-    const emoji = avatars[fromUser] || "👤";
-    div.innerHTML = `<strong>${emoji} ${fromUser}:</strong><br>`;
-  }
+    const div = document.createElement("div");
 
-  const video = document.createElement("video");
-  video.controls = true;
-  video.src = src;
-  video.style.maxWidth = "250px";
-  video.style.borderRadius = "8px";
+    div.className =
+        "bubble " +
+        (isMe ? "me" : "them");
 
-  if (isMe) {
-    const wrapper = document.createElement("div");
+    div.dataset.id = id;
+
+    if (!isMe) {
+
+        const emoji =
+            avatars[fromUser] || "👤";
+
+        div.innerHTML =
+            `<strong>${emoji} ${fromUser}:</strong><br>`;
+
+    }
+
+    const video =
+        document.createElement("video");
+
+    video.controls = true;
+    video.src = src;
+    video.style.maxWidth = "250px";
+    video.style.borderRadius = "8px";
+
+    const wrapper =
+        document.createElement("div");
+
     wrapper.style.display = "flex";
     wrapper.style.alignItems = "center";
     wrapper.style.gap = "6px";
 
     wrapper.appendChild(video);
 
-    const dl = document.createElement("button");
+    const dl =
+        document.createElement("button");
+
     dl.textContent = "⬇️";
     dl.className = "downloadBtn";
-    dl.onclick = () => downloadBase64("video.mp4", src);
+
+    dl.onclick = () =>
+        downloadBase64(
+            "video.mp4",
+            src
+        );
+
     wrapper.appendChild(dl);
 
-    const del = document.createElement("button");
-    del.textContent = "🗑️";
-    del.className = "deleteMsgBtn";
-    del.onclick = () => {
-      if (!confirm("Dieses Video wirklich löschen?")) return;
-      div.classList.add("bubble-delete");
-      setTimeout(() => {
-        socket.emit("deleteMessage", {
-          id,
-          user: username,
-          with: selectedUser
-        });
-        div.remove();
-      }, 200);
-    };
-    wrapper.appendChild(del);
+    if (isMe) {
+
+        const del =
+            document.createElement("button");
+
+        del.textContent = "🗑️";
+
+        del.className =
+            "deleteMsgBtn";
+
+        del.onclick = () => {
+
+            if (
+                !confirm(
+                    "Dieses Video wirklich löschen?"
+                )
+            ) return;
+
+            div.classList.add(
+                "bubble-delete"
+            );
+
+            setTimeout(() => {
+
+                socket.emit(
+                    "deleteMessage",
+                    {
+                        id,
+                        user: username,
+                        with: selectedUser
+                    }
+                );
+
+                div.remove();
+
+            }, 200);
+
+        };
+
+        wrapper.appendChild(del);
+
+    }
 
     div.appendChild(wrapper);
-  } else {
-    div.appendChild(video);
-  }
 
-  messages.appendChild(div);
-  messages.scrollTop = messages.scrollHeight;
+    messages.appendChild(div);
+
+    messages.scrollTop =
+        messages.scrollHeight;
+
 }
-
 /* AUDIO */
 function addAudio(src, isMe, fromUser, id) {
   const div = document.createElement("div");
