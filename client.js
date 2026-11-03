@@ -1284,11 +1284,15 @@ socket.on("incomingCall", async ({ from }) => {
     ringtone.volume = 1.0;
 
     try {
+
         await ringtone.play();
+
     } catch (err) {
+
         console.log(
             "Klingelton konnte nicht gestartet werden"
         );
+
     }
 
     const answer = confirm(
@@ -1307,7 +1311,11 @@ socket.on("incomingCall", async ({ from }) => {
                     audio: true
                 });
 
-            window.localAudioStream = stream;
+            window.localAudioStream =
+                stream;
+
+            hangupBtn.style.display =
+                "inline-block";
 
         } catch (err) {
 
@@ -1339,8 +1347,7 @@ socket.on("incomingCall", async ({ from }) => {
 
     }
 
-});
-socket.on("callAccepted", async ({ from }) => {
+});socket.on("callAccepted", async ({ from }) => {
 
     alert(
         `✅ ${from} hat angenommen`
