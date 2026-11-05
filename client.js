@@ -238,15 +238,87 @@ function decrypt(cipher) {
 }
 
 /* DOWNLOAD */
-function downloadBase64(filename, base64) {
-  const a = document.createElement("a");
-  a.href = base64;
-  a.download = filename;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-}
+async function downloadBase64(
+    filename,
+    base64
+) {
 
+    try {
+
+        const response =
+            await fetch(base64);
+
+        const blob =
+            await response.blob();
+
+        const file =
+            new File(
+                [blob],
+                filename,
+                {
+                    type:
+                        blob.type ||
+                        "application/octet-stream"
+                }
+            );
+
+        if (
+            navigator.canShare &&
+            navigator.canShare({
+                files: [file]
+            })
+        ) {
+
+            await navigator.share({
+                files: [file],
+                title: filename
+            });
+
+            return;
+
+        }
+
+        const blobUrl =
+            URL.createObjectURL(
+                blob
+            );
+
+        const a =
+            document.createElement(
+                "a"
+            );
+
+        a.href = blobUrl;
+        a.download = filename;
+
+        document.body.appendChild(
+            a
+        );
+
+        a.click();
+
+        document.body.removeChild(
+            a
+        );
+
+        setTimeout(() => {
+
+            URL.revokeObjectURL(
+                blobUrl
+            );
+
+        }, 1000);
+
+    } catch (err) {
+
+        console.error(
+            "Download Fehler:",
+            err
+        );
+
+    }
+
+}
 /* ELEMENTS */
 const loginScreen = document.getElementById("loginScreen");
 const usernameInput = document.getElementById("usernameInput");
