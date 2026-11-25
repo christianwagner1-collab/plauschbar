@@ -491,26 +491,52 @@ function renderFriends() {
 }
 
 /* USER AUSWÄHLEN */
+
 function selectUser(name) {
-  selectedUser = name;
-  const emoji = avatars[name] || "👤";
 
-  chatAvatar.textContent = emoji;
-  chatTitle.textContent = `${emoji} ${name}`;
-  chatSubTitle.textContent = "";
-  groupMembersBox.textContent = "";
+    addToGroupBtn.style.display =
+        "none";
 
-  messages.innerHTML = "";
-  clearRedDot(name);
+    removeFromGroupBtn.style.display =
+        "none";
 
-  socket.emit("loadChat", { with: name });
+    selectedUser = name;
 
-  socket.emit("markAsRead", {
-    user: username,
-    with: name
-  });
+    const emoji =
+        avatars[name] || "👤";
+
+    chatAvatar.textContent =
+        emoji;
+
+    chatTitle.textContent =
+        `${emoji} ${name}`;
+
+    chatSubTitle.textContent =
+        "";
+
+    groupMembersBox.textContent =
+        "";
+
+    messages.innerHTML = "";
+
+    clearRedDot(name);
+
+    socket.emit(
+        "loadChat",
+        {
+            with: name
+        }
+    );
+
+    socket.emit(
+        "markAsRead",
+        {
+            user: username,
+            with: name
+        }
+    );
+
 }
-
 /* GRUPPE AUSWÄHLEN */
 
 function selectGroup(groupName) {
