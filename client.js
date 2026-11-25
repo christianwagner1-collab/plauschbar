@@ -512,22 +512,55 @@ function selectUser(name) {
 }
 
 /* GRUPPE AUSWÄHLEN */
+
 function selectGroup(groupName) {
-  selectedUser = groupName;
 
-  chatAvatar.textContent = "👥";
-  chatTitle.textContent = `👥 ${groupName}`;
-  chatSubTitle.textContent = "";
+    selectedUser = groupName;
 
-  groupMembersBox.textContent =
-    "Mitglieder: " + groups[groupName].join(", ");
+    chatAvatar.textContent = "👥";
 
-  messages.innerHTML = "";
-  clearRedDot(groupName);
+    chatTitle.textContent =
+        `👥 ${groupName}`;
 
-  socket.emit("loadGroupChat", { group: groupName });
+    chatSubTitle.textContent = "";
+
+    groupMembersBox.textContent =
+        "Mitglieder: " +
+        groups[groupName].join(", ");
+
+    messages.innerHTML = "";
+
+    clearRedDot(groupName);
+
+    if (
+        groupName === "Familie" ||
+        groupName === "Freunde"
+    ) {
+
+        addToGroupBtn.style.display =
+            "inline-block";
+
+        removeFromGroupBtn.style.display =
+            "inline-block";
+
+    } else {
+
+        addToGroupBtn.style.display =
+            "none";
+
+        removeFromGroupBtn.style.display =
+            "none";
+
+    }
+
+    socket.emit(
+        "loadGroupChat",
+        {
+            group: groupName
+        }
+    );
+
 }
-
 /* ===========================
    TEIL 2 — CHAT & MEDIEN
 =========================== */
