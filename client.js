@@ -677,6 +677,8 @@ function sendMessage() {
   }
 
   messageInput.value = "";
+  sendBtn.style.display =
+    "none";
 }
 
 /* RECEIVE 1:1 */
