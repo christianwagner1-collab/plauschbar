@@ -159,14 +159,41 @@ body {
 }
 
 .recordBtnHeader {
-  font-size: 22px;
-  background: none;
+  font-size: 24px;
+
+  width: 44px;
+  height: 44px;
+
   border: none;
+  border-radius: 50%;
+
+  background: #00cfff;
+  color: white;
+
   cursor: pointer;
+
   margin-left: auto;
   margin-right: 10px;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  box-shadow: 0 0 12px rgba(0, 207, 255, 0.45);
+
+  transition: transform 0.2s ease,
+              background 0.2s ease,
+              box-shadow 0.2s ease;
 }
 
+.recordBtnHeader:hover {
+  background: #00b2dd;
+  transform: scale(1.08);
+}
+
+.recordBtnHeader:active {
+  transform: scale(0.96);
+}
 .deleteBtn {
   font-size: 22px;
   background: none;
