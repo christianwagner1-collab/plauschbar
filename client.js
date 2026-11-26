@@ -625,7 +625,26 @@ sendBtn.onclick = sendMessage;
 messageInput.addEventListener("keydown", e => {
   if (e.key === "Enter") sendMessage();
 });
+messageInput.addEventListener(
+    "input",
+    () => {
 
+        if (
+            messageInput.value.trim().length > 0
+        ) {
+
+            sendBtn.style.display =
+                "flex";
+
+        } else {
+
+            sendBtn.style.display =
+                "none";
+
+        }
+
+    }
+);
 function sendMessage() {
   if (!selectedUser) return;
 
