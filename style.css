@@ -280,8 +280,8 @@ body {
 }
 
 #fileBtn {
-    width: 44px;
-    height: 44px;
+    width: 46px;
+    height: 46px;
 
     border: none;
     border-radius: 50%;
@@ -289,16 +289,29 @@ body {
     background: #4da3ff;
     color: white;
 
-    font-size: 24px;
+    font-size: 28px;
     font-weight: bold;
-
-    cursor: pointer;
+    line-height: 1;
 
     display: flex;
     align-items: center;
     justify-content: center;
 
-    transition: all 0.2s ease;
+    cursor: pointer;
+
+    box-shadow: 0 4px 10px rgba(0,0,0,0.15);
+
+    transition: background 0.2s ease,
+                transform 0.15s ease;
+}
+
+#fileBtn:hover {
+    background: #1f8bff;
+    transform: scale(1.05);
+}
+
+#fileBtn:active {
+    transform: scale(0.95);
 }
 
 #fileBtn:hover {
