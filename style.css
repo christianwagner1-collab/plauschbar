@@ -280,9 +280,31 @@ body {
 }
 
 #fileBtn {
-  width: 40px;
+    width: 44px;
+    height: 44px;
+
+    border: none;
+    border-radius: 50%;
+
+    background: #4da3ff;
+    color: white;
+
+    font-size: 24px;
+    font-weight: bold;
+
+    cursor: pointer;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    transition: all 0.2s ease;
 }
 
+#fileBtn:hover {
+    background: #1f8bff;
+    transform: scale(1.05);
+}
 #sendBtn {
     background: #4da3ff;
     color: white;
